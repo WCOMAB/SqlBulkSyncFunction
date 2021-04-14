@@ -1,0 +1,19 @@
+{
+    "version": "2.0",
+    "logging": {
+        "applicationInsights": {
+            "samplingSettings": {
+                "isEnabled": true,
+                "excludedTypes": "Request"
+            }
+        },
+        "Console":
+        {
+            "FormatterOptions": {
+                "IncludeScopes": true,
+                "TimestampFormat": "HH:mm:ss",
+                "UseUtcTimestamp": true
+              }
+        }
+    }
+}
