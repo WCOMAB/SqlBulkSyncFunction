@@ -1,4 +1,4 @@
-# SqlBulkSyncFunction
+# SqlBulkSyncFunction [![Build Azure Function](https://github.com/WCOMAB/SqlBulkSyncFunction/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/WCOMAB/SqlBulkSyncFunction/actions/workflows/build.yml)
 
 Azure Function version of [WCOMAB/SqlBulkSync](https://github.com/WCOMAB/SqlBulkSync) tool, a lightweight, performant non-intrusive SQL Server data sync service.
 
@@ -10,7 +10,7 @@ The service was developed primary for syncing on premise SQL server data to Azur
 - .NET 5 SDK  https://www.microsoft.com/net/download
 - Azure Functions Core Tools version 3.0.3381, or a later version. - https://docs.microsoft.com/en-us/azure/azure-functions/functions-run-local#v2
 - Azure CLI version 2.20, or a later version. - https://docs.microsoft.com/en-us/cli/azure/install-azure-cli
-- IDE 
+- IDE
   - Visual Studio - 16.9.2, or a later version
   - VS Code - 1.54.3, or a later version
 
@@ -29,6 +29,5 @@ The function is configured through Azure App Settings / Environent variables, yo
 | SyncJobsConfig:Jobs:[x]:Target:TenantId         | Azure tenant ID used for managed identity | `46b41530-1e0d-4403-b815-24815944aa6a`                                       |
 | SyncJobsConfig:Jobs:[x]:BatchSize               | Bulk sync batch size                      | `1000`                                                                       |
 | SyncJobsConfig:Jobs:[x]:Tables:[x]              | Table to sync                             | `dbo.MyTable`                                                                |
-
 
 > Note: Replace `[x]` with index of job / table config starting with `0`
