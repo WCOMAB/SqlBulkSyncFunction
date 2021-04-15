@@ -1,0 +1,49 @@
+name: $(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)
+trigger:
+- main
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  solution: '**/*.sln'
+  buildPlatform: 'Any CPU'
+  buildConfiguration: 'Release'
+  artifactName: 'SqlBulkSyncFunction'
+
+steps:
+- task: UseDotNet@2
+  displayName: 'Use .NET Core SDK 3.1.x'
+  inputs:
+    packageType: sdk
+    version: '3.1.x'
+
+- task: UseDotNet@2
+  displayName: 'Use .NET Core SDK 5.0.x'
+  inputs:
+    packageType: sdk
+    version: '5.0.x'
+
+- task: UseDotNet@2
+  displayName: 'Use .NET Core SDK global.json'
+  inputs:
+    packageType: sdk
+    useGlobalJson: true
+
+- script: |
+    dotnet publish -p:Version=$(Build.BuildNumber) --configuration $(BuildConfiguration) -p:GenerateFullPaths=true --output "$(Build.ArtifactStagingDirectory)/Output" src/SqlBulkSyncFunction/SqlBulkSyncFunction.csproj
+  displayName: .NET Publish $(ArtifactName)
+
+- task: ArchiveFiles@2
+  displayName: Archive Output $(ArtifactName)
+  inputs:
+    rootFolderOrFile: $(Build.ArtifactStagingDirectory)/Output
+    includeRootFolder: false
+    archiveFile: $(Build.ArtifactStagingDirectory)/$(ArtifactName).zip
+
+- task: PublishPipelineArtifact@1
+  displayName: Publish Pipeline Artifact $(ArtifactName)
+  inputs:
+    artifactName: $(ArtifactName)
+    path: $(Build.ArtifactStagingDirectory)/$(ArtifactName).zip
+
