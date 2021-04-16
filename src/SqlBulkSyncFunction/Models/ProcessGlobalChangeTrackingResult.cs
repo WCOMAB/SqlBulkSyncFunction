@@ -5,6 +5,6 @@ using SqlBulkSyncFunction.Models.Job;
 namespace SqlBulkSyncFunction.Models
 {
     public record ProcessGlobalChangeTrackingResult(
-        [property:QueueOutput(nameof(ProcessGlobalChangeTrackingQueue))]SyncJob[] SyncJob
+        [property:QueueOutput(nameof(ProcessGlobalChangeTrackingQueue))]SyncJob[] SyncJobs
         );
 }

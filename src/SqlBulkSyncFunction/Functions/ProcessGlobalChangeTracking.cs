@@ -1,14 +1,13 @@
 using System;
-using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading.Tasks;
-using Dasync.Collections;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SqlBulkSyncFunction.Models;
 using SqlBulkSyncFunction.Models.Job;
 using SqlBulkSyncFunction.Services;
+using SqlBulkSyncFunction.Helpers;
 
 namespace SqlBulkSyncFunction.Functions
 {
@@ -19,7 +18,7 @@ namespace SqlBulkSyncFunction.Functions
         ITokenCacheService TokenCacheService
         )
     {
-        [Function("ProcessGlobalChangeTracking")]
+        [Function(nameof(ProcessGlobalChangeTracking))]
         public async Task<ProcessGlobalChangeTrackingResult> Run(
             [TimerTrigger("%ProcessGlobalChangeTrackingSchedule%")] TimerTriggerInfo timerTriggerInfo
             )
@@ -30,25 +29,15 @@ namespace SqlBulkSyncFunction.Functions
                 return new ProcessGlobalChangeTrackingResult(Array.Empty<SyncJob>());
             }
 
-            var tokenCache = await TokenCacheService.GetTokenCache(SyncJobsConfig.Value);
-
             var expires = DateTimeOffset.UtcNow.AddMinutes(4);
+            var tokenCache = await TokenCacheService.GetTokenCache(SyncJobsConfig.Value.Jobs.Values);
 
             return new ProcessGlobalChangeTrackingResult(
                 SyncJobsConfig
                     .Value
                     .Jobs
-                    .Select(
-                        job => new SyncJob(
-                            SourceDbConnection: job.Source.ConnectionString,
-                            SourceDbAccessToken: job.Source.ManagedIdentity && tokenCache.TryGetValue(job.Source.TenantId ?? string.Empty, out var sourceToken) ? sourceToken : null,
-                            TargetDbConnection: job.Target.ConnectionString,
-                            TargetDbAccessToken: job.Target.ManagedIdentity && tokenCache.TryGetValue(job.Target.TenantId ?? string.Empty, out var targetToken) ? targetToken : null,
-                            Tables: job.Tables,
-                            BatchSize: job.BatchSize,
-                            Expires: expires
-                        )
-                ).ToArray()
+                    .Select(job => job.Value.ToSyncJob(job.Key, tokenCache, expires))
+                    .ToArray()
             );
         }
     }

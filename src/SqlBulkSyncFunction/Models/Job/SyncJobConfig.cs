@@ -6,5 +6,6 @@ namespace SqlBulkSyncFunction.Models.Job
         public SyncJobConfigDataSource Target { get; set; }
         public string[] Tables { get; set; }
         public int? BatchSize { get; set; }
+        public string Area { get; set; }
     }
 }

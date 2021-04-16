@@ -15,6 +15,7 @@ namespace SqlBulkSyncFunction.Services
     {
         public async Task ProcessSyncJob(SyncJob syncJob, bool globalChangeTracking)
         {
+            using var scope = Logger.BeginScope(syncJob.Id);
             await using SqlConnection
                 sourceConn = new(syncJob.SourceDbConnection) { AccessToken = syncJob.SourceDbAccessToken },
                 targetConn = new(syncJob.TargetDbConnection) { AccessToken = syncJob.TargetDbAccessToken };
