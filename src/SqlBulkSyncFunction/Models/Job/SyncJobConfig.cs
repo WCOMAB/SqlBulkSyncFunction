@@ -7,5 +7,6 @@ namespace SqlBulkSyncFunction.Models.Job
         public string[] Tables { get; set; }
         public int? BatchSize { get; set; }
         public string Area { get; set; }
+        public bool? Manual { get; set; }
     }
 }
