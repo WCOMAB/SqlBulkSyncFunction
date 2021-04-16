@@ -17,6 +17,7 @@ namespace SqlBulkSyncFunction.Functions
         [Function(nameof(ProcessGlobalChangeTrackingQueue))]
         public async Task Run([QueueTrigger(nameof(ProcessGlobalChangeTrackingQueue))] SyncJob syncJob)
         {
+
             if(syncJob == null)
             {
                 return;

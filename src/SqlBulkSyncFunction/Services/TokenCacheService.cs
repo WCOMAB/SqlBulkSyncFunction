@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Dasync.Collections;
@@ -10,19 +11,32 @@ namespace SqlBulkSyncFunction.Services
     // ReSharper disable once UnusedMember.Global
     public record TokenCacheService(IAzureSqlTokenService AzureSqlTokenService) : ITokenCacheService
     {
-        public async Task<ConcurrentDictionary<string, string>> GetTokenCache(SyncJobsConfig syncJobsConfig)
+        public Task<ConcurrentDictionary<string, string>> GetTokenCache(IEnumerable<SyncJobConfig> jobs)
+            => GetTokenCache(
+                jobs
+                    .Select(
+                        job => new[]
+                        {
+                            job.Source,
+                            job.Target
+                        }
+                    )
+                    .SelectMany(tenant => tenant)
+            );
+
+        public Task<ConcurrentDictionary<string, string>> GetTokenCache(SyncJobConfig job)
+            => GetTokenCache(
+                new[]
+                {
+                    job.Source,
+                    job.Target
+                }
+            );
+
+        private async Task<ConcurrentDictionary<string, string>> GetTokenCache(IEnumerable<SyncJobConfigDataSource> dataSources)
         {
             var tokenCache = new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            await syncJobsConfig
-                .Jobs
-                .Select(
-                    job => new[]
-                    {
-                        (job.Source.TenantId, job.Source.ManagedIdentity),
-                        (job.Target.TenantId, job.Target.ManagedIdentity)
-                    }
-                )
-                .SelectMany(tenant => tenant)
+            await dataSources
                 .Where(tenant => tenant.ManagedIdentity)
                 .Select(tenant => tenant.TenantId ?? string.Empty)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -37,6 +51,7 @@ namespace SqlBulkSyncFunction.Services
                     }
                 );
             return tokenCache;
+
         }
     }
 }
