@@ -36,6 +36,7 @@ namespace SqlBulkSyncFunction.Functions
                 SyncJobsConfig
                     .Value
                     .Jobs
+                    .Where(job => !job.Value.Manual.HasValue || job.Value.Manual==false)
                     .Select(job => job.Value.ToSyncJob(job.Key, tokenCache, expires))
                     .ToArray()
             );

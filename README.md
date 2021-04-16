@@ -29,8 +29,11 @@ The function is configured through Azure App Settings / Environent variables, yo
 | SyncJobsConfig:Jobs:[key]:Target:TenantId         | Azure tenant ID used for managed identity | `46b41530-1e0d-4403-b815-24815944aa6a`                                       |
 | SyncJobsConfig:Jobs:[key]:BatchSize               | Bulk sync batch size                      | `1000`                                                                       |
 | SyncJobsConfig:Jobs:[key]:Area                    | Area name, used to manually trigger sync  | `Development`                                                                |
+| SyncJobsConfig:Jobs:[key]:Manual                  | Flag is sync excluded from schedule       | `true`                                                                       |
 | SyncJobsConfig:Jobs:[key]:Tables:[x]              | Table to sync                             | `dbo.MyTable`                                                                |
 
 > Note:
+>
 > Replace `[key]` with unique name of sync job config i.e. `MySync`
+>
 > Replace `[x]` with index of table config starting with `0`
