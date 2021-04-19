@@ -75,7 +75,7 @@ WHEN MATCHED
         SET {5};
 SELECT @@ROWCOUNT AS [RowCount];
 {7}",
-                tableSchema.TableName,
+                tableSchema.TargetTableName,
                 tableSchema.SyncNewOrUpdatedTableName,
                 string.Join(
                     " AND\r\n        ",
@@ -108,12 +108,12 @@ SELECT @@ROWCOUNT AS [RowCount];
                     ),
                 (
                     identityInsert
-                        ? $"SET IDENTITY_INSERT {tableSchema.TableName} ON"
+                        ? $"SET IDENTITY_INSERT {tableSchema.TargetTableName} ON"
                         : string.Empty
                     ),
                 (
                     identityInsert
-                        ? $"SET IDENTITY_INSERT {tableSchema.TableName} OFF"
+                        ? $"SET IDENTITY_INSERT {tableSchema.TargetTableName} OFF"
                         : string.Empty
                     ),
                 (
@@ -136,7 +136,7 @@ FROM {0} source
     INNER JOIN {1} target ON    {2}
 SELECT @@ROWCOUNT AS [RowCount]",
                 tableSchema.SyncDeletedTableName,
-                tableSchema.TableName,
+                tableSchema.TargetTableName,
                 string.Join(
                     " AND\r\n                                ",
                     tableSchema.Columns.Where(column => column.IsPrimary).Select(
@@ -252,7 +252,7 @@ CREATE TABLE {0}(
                         primaryKeyColumns.Select(column => column.QuoteName)
                         )
                     ,
-                    tableSchema.TableName
+                    tableSchema.SourceTableName
                     );
             }
 
@@ -267,7 +267,7 @@ CREATE TABLE {0}(
                     .Where(column => column.IsPrimary)
                     .Select(column => string.Concat("ct.", column.QuoteName))
                     ),
-                tableSchema.TableName,
+                tableSchema.SourceTableName,
                 tableSchema.TargetVersion.CurrentVersion
                 );
         }
@@ -286,7 +286,7 @@ CREATE TABLE {0}(
                                 ",\r\n        ",
                                 tableSchema.Columns.Select(column => column.QuoteName)
                                 ),
-                    tableSchema.TableName
+                    tableSchema.SourceTableName
                     )
                 : string.Format(
                     @"SELECT  {0}
@@ -296,7 +296,7 @@ CREATE TABLE {0}(
                         ",\r\n        ",
                         tableSchema.Columns.Select(column => string.Concat("t.", column.QuoteName))
                         ),
-                    tableSchema.TableName,
+                    tableSchema.SourceTableName,
                     tableSchema.TargetVersion.CurrentVersion,
                     string.Join(
                         " AND\r\n        ",

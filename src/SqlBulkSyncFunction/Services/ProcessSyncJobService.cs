@@ -47,7 +47,7 @@ namespace SqlBulkSyncFunction.Services
             var schemaStopWatch = Stopwatch.StartNew();
             var tableSchemas = (
                     syncJob.Tables
-                    ?? Array.Empty<string>()
+                    ?? Array.Empty<SyncJobTable>()
                 )
                 .Select(
                     table => TableSchema.LoadSchema(sourceConn, targetConn, table, syncJob.BatchSize, globalChangeTracking)
@@ -58,9 +58,9 @@ namespace SqlBulkSyncFunction.Services
             Array.ForEach(
                 tableSchemas,
                 tableSchema => {
-                    using (Logger.BeginScope(tableSchema.TableName))
+                    using (Logger.BeginScope(tableSchema.Scope))
                     {
-                        Logger.LogInformation("Begin {0}", tableSchema.TableName);
+                        Logger.LogInformation("Begin {0}", tableSchema.Scope);
                         var syncStopWatch = Stopwatch.StartNew();
                         if (tableSchema.SourceVersion.Equals(tableSchema.TargetVersion))
                         {
@@ -71,7 +71,7 @@ namespace SqlBulkSyncFunction.Services
                             SyncTable(targetConn, tableSchema, sourceConn);
                         }
                         syncStopWatch.Stop();
-                        Logger.LogInformation("End {0}, duration {1}", tableSchema.TableName, syncStopWatch.Elapsed);
+                        Logger.LogInformation("End {0}, duration {1}", tableSchema.Scope, syncStopWatch.Elapsed);
                         targetConn.PersistsSourceTargetVersionState(tableSchema);
                     }
                 }

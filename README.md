@@ -18,22 +18,24 @@ The service was developed primary for syncing on premise SQL server data to Azur
 
 The function is configured through Azure App Settings / Environent variables, you can have multiple sync source/targets configures, and multiple tables per sync job.
 
-| Key                                               | Description                               | Example                                                                      |
-|---------------------------------------------------|-------------------------------------------|------------------------------------------------------------------------------|
-| ProcessGlobalChangeTrackingSchedule               | Cron expression                           | `0 */5 * * * *`                                                              |
-| SyncJobsConfig:Jobs:[key]:Source:ConnectionString | Source database connection string         | `Server=my.dbserver.net;Initial Catalog=MySourceDb;Integrated Security=True` |
-| SyncJobsConfig:Jobs:[key]:Source:ManagedIdentity  | Flag for if managed identity used         | `false`                                                                      |
-| SyncJobsConfig:Jobs:[key]:Source:TenantId         | Azure tenant ID used for managed identity | `46b41530-1e0d-4403-b815-24815944aa6a`                                       |
-| SyncJobsConfig:Jobs:[key]:Target:ConnectionString | Source database connection string         | Server=my.dbserver.net;Initial Catalog=MySourceDb;Integrated Security=True   |
-| SyncJobsConfig:Jobs:[key]:Target:ManagedIdentity  | Flag for if managed identity used         | `true`                                                                       |
-| SyncJobsConfig:Jobs:[key]:Target:TenantId         | Azure tenant ID used for managed identity | `46b41530-1e0d-4403-b815-24815944aa6a`                                       |
-| SyncJobsConfig:Jobs:[key]:BatchSize               | Bulk sync batch size                      | `1000`                                                                       |
-| SyncJobsConfig:Jobs:[key]:Area                    | Area name, used to manually trigger sync  | `Development`                                                                |
-| SyncJobsConfig:Jobs:[key]:Manual                  | Flag is sync excluded from schedule       | `true`                                                                       |
-| SyncJobsConfig:Jobs:[key]:Tables:[x]              | Table to sync                             | `dbo.MyTable`                                                                |
+| Key                                                 | Description                               | Example                                                                      |
+|-----------------------------------------------------|-------------------------------------------|------------------------------------------------------------------------------|
+| `ProcessGlobalChangeTrackingSchedule`               | Cron expression                           | `0 */5 * * * *`                                                              |
+| `SyncJobsConfig:Jobs:[key]:Source:ConnectionString` | Source database connection string         | `Server=my.dbserver.net;Initial Catalog=MySourceDb;Integrated Security=True` |
+| `SyncJobsConfig:Jobs:[key]:Source:ManagedIdentity`  | Flag for if managed identity used         | `false`                                                                      |
+| `SyncJobsConfig:Jobs:[key]:Source:TenantId`         | Azure tenant ID used for managed identity | `46b41530-1e0d-4403-b815-24815944aa6a`                                       |
+| `SyncJobsConfig:Jobs:[key]:Target:ConnectionString` | Target database connection string         | `Server=my.dbserver.net;Initial Catalog=MyTargetDb;Integrated Security=True` |
+| `SyncJobsConfig:Jobs:[key]:Target:ManagedIdentity`  | Flag for if managed identity used         | `true`                                                                       |
+| `SyncJobsConfig:Jobs:[key]:Target:TenantId`         | Azure tenant ID used for managed identity | `46b41530-1e0d-4403-b815-24815944aa6a`                                       |
+| `SyncJobsConfig:Jobs:[key]:BatchSize`               | Bulk sync batch size                      | `1000`                                                                       |
+| `SyncJobsConfig:Jobs:[key]:Area`                    | Area name, used to manually trigger sync  | `Development`                                                                |
+| `SyncJobsConfig:Jobs:[key]:Manual`                  | Flag is sync excluded from schedule       | `true`                                                                       |
+| `SyncJobsConfig:Jobs:[key]:Tables:[key]`            | Fully qualified name of table to sync     | `dbo.MyTable`                                                                |
 
 > Note:
 >
-> Replace `[key]` with unique name of sync job config i.e. `MySync`
+> Replace `[key]` with unique name of sync job / table config i.e. `MySync` / `MyTable` would result in `SyncJobsConfig:Jobs:MySync:Tables:MyTable`=`dbo.MyTable`
 >
-> Replace `[x]` with index of table config starting with `0`
+> Non-Windows operating systems you'll need to replace `:` with `__`, i.e. `SyncJobsConfig__Jobs__MySync__Tables__MyTable`
+>
+> Configuration from KeyVault replace `:` with `--` i.e. `SyncJobsConfig--Jobs--MySync--Tables--MyTable`

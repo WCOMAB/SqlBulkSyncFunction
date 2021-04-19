@@ -9,7 +9,7 @@ namespace SqlBulkSyncFunction.Models.Job
         DateTimeOffset Expires,
         string SourceDbConnection,
         string TargetDbConnection,
-        ICollection<string> Tables,
+        ICollection<SyncJobTable> Tables,
         int? BatchSize,
         string SourceDbAccessToken = null,
         string TargetDbAccessToken = null

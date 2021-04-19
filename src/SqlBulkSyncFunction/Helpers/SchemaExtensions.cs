@@ -14,9 +14,14 @@ namespace SqlBulkSyncFunction.Helpers
             TableSchema tableSchema
             )
         {
+            var syncedTableVersion = tableSchema.SourceVersion with
+            {
+                TableName = tableSchema.TargetTableName
+            };
+
             var persistedTableVersion = conn.Query<TableVersion>(
                     commandTimeout: 180,
-                    param: tableSchema.SourceVersion,
+                    param: syncedTableVersion,
                     sql: @"MERGE sync.TableVersion as target
                     USING (
                         SELECT @TableName           AS TableName,
@@ -56,9 +61,9 @@ namespace SqlBulkSyncFunction.Helpers
                             inserted.Queried;"
                 ).SingleOrDefault();
 
-            if (persistedTableVersion != tableSchema.SourceVersion)
+            if (persistedTableVersion != syncedTableVersion)
             {
-                throw new Exception($"Failed to persist {tableSchema.TableName}");
+                throw new Exception($"Failed to persist {syncedTableVersion} ({persistedTableVersion})");
             }
         }
 
