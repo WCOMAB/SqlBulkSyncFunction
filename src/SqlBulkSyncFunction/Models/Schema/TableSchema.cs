@@ -1,12 +1,15 @@
 using System;
 using Microsoft.Data.SqlClient;
 using SqlBulkSyncFunction.Helpers;
+using SqlBulkSyncFunction.Models.Job;
 
 namespace SqlBulkSyncFunction.Models.Schema
 {
     public record TableSchema
     {
-        public string TableName { get; }
+        public string Scope { get; }
+        public string SourceTableName { get; }
+        public string TargetTableName { get; }
         public Column[] Columns { get; }
         public string SyncNewOrUpdatedTableName { get; }
         public string SyncDeletedTableName { get; }
@@ -22,16 +25,23 @@ namespace SqlBulkSyncFunction.Models.Schema
         public TableVersion TargetVersion { get; }
         public int BatchSize { get; }
         private TableSchema(
-            string tableName,
+            SyncJobTable table,
             Column[] columns,
             TableVersion sourceVersion,
             TableVersion targetVersion,
             int? batchSize
             )
         {
-            var bufferName = tableName.Replace("[", "").Replace("]", "");
+            var bufferName = table.Target.Replace("[", "").Replace("]", "");
 
-            TableName = tableName;
+            Scope = string.Concat(
+                table.Source,
+                " to ",
+                table.Target
+            );
+
+            SourceTableName = table.Source;
+            TargetTableName = table.Target;
             SyncNewOrUpdatedTableName = $"sync.[{bufferName}_{Guid.NewGuid()}]";
             SyncDeletedTableName = $"sync.[{bufferName}_{Guid.NewGuid()}]";
             Columns = columns;
@@ -54,17 +64,17 @@ namespace SqlBulkSyncFunction.Models.Schema
         public static TableSchema LoadSchema(
             SqlConnection sourceConn,
             SqlConnection targetConn,
-            string tableName,
+            SyncJobTable syncTable,
             int? batchSize,
             bool globalChangeTracking
             )
         {
-            var columns = sourceConn.GetColumns(tableName);
-            var targetVersion = targetConn.GetTargetVersion(tableName);
+            var columns = sourceConn.GetColumns(syncTable.Source);
+            var targetVersion = targetConn.GetTargetVersion(syncTable.Target);
             return new TableSchema(
-                tableName,
+                syncTable,
                 columns,
-                sourceConn.GetSourceVersion(tableName, globalChangeTracking, columns),
+                sourceConn.GetSourceVersion(syncTable.Source, globalChangeTracking, columns),
                 targetVersion,
                 batchSize
                 );
