@@ -17,22 +17,24 @@ namespace SqlBulkSyncFunction.Functions
         [Function(nameof(ProcessGlobalChangeTrackingQueue))]
         public async Task Run([QueueTrigger(nameof(ProcessGlobalChangeTrackingQueue))] SyncJob syncJob)
         {
-
             if(syncJob == null)
             {
                 return;
             }
 
-            if (syncJob.Expires < DateTimeOffset.UtcNow)
+            using (Logger.BeginScope(new{ syncJob.Schedule,  syncJob.Id }))
             {
-                Logger.LogWarning("Sync job expired: {Expires}", syncJob.Expires);
-                return;
-            }
+                if (syncJob.Expires < DateTimeOffset.UtcNow)
+                {
+                    Logger.LogWarning("Sync job expired: {Expires}", syncJob.Expires);
+                    return;
+                }
 
-            await ProcessSyncJobService.ProcessSyncJob(
-                        globalChangeTracking: true,
-                        syncJob: syncJob
-                    );
+                await ProcessSyncJobService.ProcessSyncJob(
+                    globalChangeTracking: true,
+                    syncJob: syncJob
+                );
+            }
         }
     }
 }

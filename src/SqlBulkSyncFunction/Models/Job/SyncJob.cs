@@ -5,6 +5,7 @@ namespace SqlBulkSyncFunction.Models.Job
 {
     public record SyncJob(
         string Id,
+        string Schedule,
         string Area,
         DateTimeOffset Expires,
         string SourceDbConnection,

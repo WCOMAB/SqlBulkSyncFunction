@@ -4,12 +4,13 @@ namespace SqlBulkSyncFunction.Models.Job
 {
     public record SyncJobConfig
     {
-        public SyncJobConfigDataSource Source { get; set; }
-        public SyncJobConfigDataSource Target { get; set; }
-        public Dictionary<string, string> Tables { get; set; }
-        public Dictionary<string, string> TargetTables { get; set; }
-        public int? BatchSize { get; set; }
-        public string Area { get; set; }
-        public bool? Manual { get; set; }
+        public SyncJobConfigDataSource Source { get; init; }
+        public SyncJobConfigDataSource Target { get; init; }
+        public Dictionary<string, string> Tables { get; init; }
+        public Dictionary<string, string> TargetTables { get; init; }
+        public int? BatchSize { get; init; }
+        public string Area { get; init; }
+        public bool? Manual { get; init; }
+        public Dictionary<string, bool> Schedules { get; init; }
     }
 }

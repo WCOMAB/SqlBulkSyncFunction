@@ -10,10 +10,12 @@ namespace SqlBulkSyncFunction.Helpers
         public static SyncJob ToSyncJob(
             this SyncJobConfig job,
             string id,
+            string schedule,
             ConcurrentDictionary<string, string> tokenCache,
             DateTimeOffset expires
         ) => new (
                     id,
+                    schedule,
                     job.Area,
                     SourceDbConnection: job.Source.ConnectionString,
                     SourceDbAccessToken: TryGetToken(job.Source, tokenCache),
