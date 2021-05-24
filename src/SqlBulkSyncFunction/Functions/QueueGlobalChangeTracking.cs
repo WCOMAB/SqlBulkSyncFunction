@@ -45,7 +45,8 @@ namespace  SqlBulkSyncFunction.Functions
                 jobConfig.ToSyncJob(
                     tokenCache: await TokenCacheService.GetTokenCache(jobConfig),
                     expires: DateTimeOffset.UtcNow.AddMinutes(4),
-                    id: id
+                    id: id,
+                    schedule:nameof(jobConfig.Manual)
                 ),
                 req.CreateResponse(HttpStatusCode.Accepted)
             );

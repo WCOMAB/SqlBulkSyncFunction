@@ -18,6 +18,5 @@ await new HostBuilder()
                 .AddSingleton<IProcessSyncJobService, ProcessSyncJobService>()
                 .AddSingleton<ITokenCacheService, TokenCacheService>();
         })
-    .ConfigureAppConfiguration(configuration => configuration.AddEnvironmentVariables())
     .Build()
     .RunAsync();
