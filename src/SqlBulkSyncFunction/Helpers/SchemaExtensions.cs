@@ -171,7 +171,8 @@ namespace SqlBulkSyncFunction.Helpers
                         END AS IsPrimary
             ) tn
     WHERE   object_id       = object_id(@TableName) AND
-            c.is_computed   = 0"
+            c.is_computed   = 0 AND 
+            tp.name         <> 'timestamp'"
                 )
                 .ToArray();
         }
