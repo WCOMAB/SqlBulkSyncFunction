@@ -121,7 +121,8 @@ namespace SqlBulkSyncFunction.Helpers
                     {
                         DestinationTableName = table.Name,
                         BatchSize = tableSchema.BatchSize,
-                        NotifyAfter = tableSchema.BatchSize
+                        NotifyAfter = tableSchema.BatchSize,
+                        BulkCopyTimeout = 300
                     };
 
                     bcp.SqlRowsCopied += (s, e) => logger.LogInformation("{0} {1} rows copied", e.RowsCopied, table.Description);
