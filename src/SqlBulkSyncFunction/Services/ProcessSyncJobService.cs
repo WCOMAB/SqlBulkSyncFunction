@@ -51,8 +51,13 @@ namespace SqlBulkSyncFunction.Services
                         ?? Array.Empty<SyncJobTable>()
                     )
                     .Select(
-                        table => TableSchema.LoadSchema(sourceConn, targetConn, table, syncJob.BatchSize,
-                            globalChangeTracking)
+                        table => TableSchema.LoadSchema(
+                            sourceConn,
+                            targetConn,
+                            table,
+                            syncJob.BatchSize,
+                            globalChangeTracking
+                            )
                     ).ToArray();
                 schemaStopWatch.Stop();
                 Logger.LogInformation("Found {0} tables, duration {1}", tableSchemas.Length, schemaStopWatch.Elapsed);
@@ -65,7 +70,11 @@ namespace SqlBulkSyncFunction.Services
                         {
                             Logger.LogInformation("Begin {0}", tableSchema.Scope);
                             var syncStopWatch = Stopwatch.StartNew();
-                            if (tableSchema.SourceVersion.Equals(tableSchema.TargetVersion))
+                            if (syncJob.Seed)
+                            {
+                                SeedTable(targetConn, tableSchema, sourceConn);
+                            }
+                            else if (tableSchema.SourceVersion.Equals(tableSchema.TargetVersion))
                             {
                                 Logger.LogInformation("Already up to date");
                             }
@@ -81,6 +90,12 @@ namespace SqlBulkSyncFunction.Services
                     }
                 );
             }
+        }
+
+        private void SeedTable(SqlConnection targetConn, TableSchema tableSchema, SqlConnection sourceConn)
+        {
+            targetConn.TruncateTargetTable(tableSchema, Logger);
+            sourceConn.BulkCopyDataDirect(targetConn, tableSchema, Logger);
         }
 
         private void SyncTable(SqlConnection targetConn, TableSchema tableSchema, SqlConnection sourceConn)

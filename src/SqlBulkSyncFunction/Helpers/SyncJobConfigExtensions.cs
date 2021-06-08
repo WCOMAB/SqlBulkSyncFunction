@@ -12,7 +12,8 @@ namespace SqlBulkSyncFunction.Helpers
             string id,
             string schedule,
             ConcurrentDictionary<string, string> tokenCache,
-            DateTimeOffset expires
+            DateTimeOffset expires,
+            bool seed
         ) => new (
                     id,
                     schedule,
@@ -23,7 +24,8 @@ namespace SqlBulkSyncFunction.Helpers
                     TargetDbAccessToken: TryGetToken(job.Target, tokenCache),
                     Tables: job.ToSyncJobTables(),
                     BatchSize: job.BatchSize,
-                    Expires: expires
+                    Expires: expires,
+                    Seed: seed
                 );
 
         private static SyncJobTable[] ToSyncJobTables(this SyncJobConfig job)

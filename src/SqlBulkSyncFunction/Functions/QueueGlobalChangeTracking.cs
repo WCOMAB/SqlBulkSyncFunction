@@ -19,8 +19,8 @@ namespace  SqlBulkSyncFunction.Functions
         ITokenCacheService TokenCacheService
         )
     {
-        [Function(nameof(QueueGlobalChangeTracking))]
-        public async Task<QueueGlobalChangeTrackingResult> Run(
+        [Function(nameof(QueueGlobalChangeTracking) + nameof(Queue))]
+        public async Task<QueueGlobalChangeTrackingResult> Queue(
             [HttpTrigger(
                 AuthorizationLevel.Function,
                 "post",
@@ -28,6 +28,31 @@ namespace  SqlBulkSyncFunction.Functions
             )] HttpRequestData req,
             string area,
             string id
+            )
+        {
+            return await GetQueueGlobalChangeTrackingResult(req, area, id);
+        }
+
+        [Function(nameof(QueueGlobalChangeTracking) + nameof(Seed))]
+        public async Task<QueueGlobalChangeTrackingResult> Seed(
+            [HttpTrigger(
+                AuthorizationLevel.Function,
+                "post",
+                Route ="queue/{area}/{id}/{seed}"
+            )] HttpRequestData req,
+            string area,
+            string id,
+            bool seed
+        )
+        {
+            return await GetQueueGlobalChangeTrackingResult(req, area, id, seed);
+        }
+
+        private async Task<QueueGlobalChangeTrackingResult> GetQueueGlobalChangeTrackingResult(
+            HttpRequestData req,
+            string area,
+            string id,
+            bool seed = false
             )
         {
             if (string.IsNullOrWhiteSpace(area) ||
@@ -46,7 +71,8 @@ namespace  SqlBulkSyncFunction.Functions
                     tokenCache: await TokenCacheService.GetTokenCache(jobConfig),
                     expires: DateTimeOffset.UtcNow.AddMinutes(4),
                     id: id,
-                    schedule:nameof(jobConfig.Manual)
+                    schedule: nameof(jobConfig.Manual),
+                    seed:seed
                 ),
                 req.CreateResponse(HttpStatusCode.Accepted)
             );
