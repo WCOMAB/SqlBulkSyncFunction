@@ -71,7 +71,7 @@ namespace SqlBulkSyncFunction.Functions
                     var syncJobs = SyncJobsConfig
                         .Value
                         .ScheduledJobs.Value[config]
-                        .Select(job => job.Job.ToSyncJob(job.Key, config, tokenCache, expires))
+                        .Select(job => job.Job.ToSyncJob(job.Key, config, tokenCache, expires, false))
                         .ToArray();
 
                     Logger.LogInformation("Found {Length} jobs for schedule.", syncJobs.Length);

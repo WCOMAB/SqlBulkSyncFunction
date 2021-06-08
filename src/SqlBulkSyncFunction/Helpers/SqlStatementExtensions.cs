@@ -272,6 +272,18 @@ CREATE TABLE {0}(
                 );
         }
 
+        public static string GetSourceSelectAllStatement(this TableSchema tableSchema)
+            // ReSharper disable once UseStringInterpolation
+            => string.Format(
+                @"SELECT  {0}
+    FROM {1} WITH(NOLOCK)",
+                string.Join(
+                    ",\r\n        ",
+                    tableSchema.Columns.Select(column => column.QuoteName)
+                ),
+                tableSchema.SourceTableName
+            );
+
         public static string GetNewOrUpdatedAtSourceSelectStatement(this TableSchema tableSchema)
         {
             if (tableSchema.Columns == null || tableSchema.Columns.Length == 0)
@@ -279,15 +291,7 @@ CREATE TABLE {0}(
 
             var statement = (tableSchema.TargetVersion.CurrentVersion <= 1)
                 // ReSharper disable once UseStringInterpolation
-                ? string.Format(
-                    @"SELECT  {0}
-    FROM {1} WITH(NOLOCK)",
-                    string.Join(
-                                ",\r\n        ",
-                                tableSchema.Columns.Select(column => column.QuoteName)
-                                ),
-                    tableSchema.SourceTableName
-                    )
+                ? tableSchema.GetSourceSelectAllStatement()
                 : string.Format(
                     @"SELECT  {0}
     FROM CHANGETABLE(CHANGES {1}, {2}) ct
@@ -312,5 +316,8 @@ CREATE TABLE {0}(
                     );
             return statement;
         }
+
+        public static string GetTruncateTargetTableStatement(this TableSchema tableSchema)
+            => string.Concat("TRUNCATE TABLE ", tableSchema.TargetTableName);
     }
 }

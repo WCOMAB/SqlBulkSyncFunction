@@ -12,6 +12,7 @@ namespace SqlBulkSyncFunction.Models.Job
         string TargetDbConnection,
         ICollection<SyncJobTable> Tables,
         int? BatchSize,
+        bool Seed,
         string SourceDbAccessToken = null,
         string TargetDbAccessToken = null
     );

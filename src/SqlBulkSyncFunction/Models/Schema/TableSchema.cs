@@ -19,8 +19,10 @@ namespace SqlBulkSyncFunction.Models.Schema
         public string DeleteStatement { get; }
         public string SourceNewOrUpdatedSelectStatement { get; }
         public string SourceDeletedSelectStatement { get; }
+        public string SourceSelectAllStatement { get; }
         public string CreateNewOrUpdatedSyncTableStatement { get; }
         public string CreateDeletedSyncTableStatement { get; }
+        public string TruncateTargetTableStatement { get; }
         public TableVersion SourceVersion { get; }
         public TableVersion TargetVersion { get; }
         public int BatchSize { get; }
@@ -52,11 +54,13 @@ namespace SqlBulkSyncFunction.Models.Schema
             CreateDeletedSyncTableStatement = this.GetCreateDeletedSyncTableStatement();
 
             SourceNewOrUpdatedSelectStatement = this.GetNewOrUpdatedAtSourceSelectStatement();
+            SourceSelectAllStatement = this.GetSourceSelectAllStatement();
             SourceDeletedSelectStatement = this.GetDeletedAtSourceSelectStatement();
             MergeNewOrUpdateStatement = this.GetNewOrUpdatedMergeStatement();
             DeleteStatement = this.GetDeleteStatement();
             DropNewOrUpdatedTableStatement = SyncNewOrUpdatedTableName.GetDropStatement();
             DropDeletedTableStatement = SyncDeletedTableName.GetDropStatement();
+            TruncateTargetTableStatement = this.GetTruncateTargetTableStatement();
             BatchSize = batchSize ?? 1000;
         }
 

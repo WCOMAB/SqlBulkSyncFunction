@@ -222,5 +222,62 @@ END;"
             logger.LogInformation(qm.ReadFirst<string>());
             logger.LogInformation(qm.ReadFirst<string>());
         }
+
+        public static void TruncateTargetTable(
+            this SqlConnection targetConn,
+            TableSchema tableSchema,
+            ILogger logger
+        )
+        {
+            using var targetCmd = new SqlCommand
+            {
+                Connection = targetConn,
+                CommandType = CommandType.Text,
+                CommandText = tableSchema.TruncateTargetTableStatement,
+                CommandTimeout = 500000
+            };
+            logger.LogInformation("Truncating table {0}...", tableSchema.TargetTableName);
+            targetCmd.ExecuteNonQuery();
+            logger.LogInformation("Truncated table {0}.", tableSchema.TargetTableName);
+        }
+
+        public static void BulkCopyDataDirect(
+            this SqlConnection sourceConn,
+            SqlConnection targetConn,
+            TableSchema tableSchema,
+            ILogger logger
+        )
+        {
+            using var sourceCmd = new SqlCommand
+            {
+                Connection = sourceConn,
+                CommandType = CommandType.Text,
+                CommandText = tableSchema.SourceSelectAllStatement,
+                CommandTimeout = 500000
+            };
+
+            using var reader = sourceCmd.ExecuteReader();
+
+            using var bcp = new SqlBulkCopy(targetConn)
+            {
+                DestinationTableName = tableSchema.TargetTableName,
+                BatchSize = tableSchema.BatchSize,
+                NotifyAfter = tableSchema.BatchSize,
+                BulkCopyTimeout = 300
+            };
+
+            foreach (var tableSchemaColumn in tableSchema.Columns)
+            {
+                bcp.ColumnMappings.Add(
+                    tableSchemaColumn.Name,
+                    tableSchemaColumn.Name
+                );
+            }
+
+            logger.LogInformation("Bulk copy starting for {0}.", tableSchema.TargetTableName);
+            bcp.SqlRowsCopied += (s, e) => logger.LogInformation("{0} {1} rows copied", e.RowsCopied, tableSchema.TargetTableName);
+            bcp.WriteToServer(reader);
+            logger.LogInformation("Bulk copy complete for {0}.", tableSchema.TargetTableName);
+        }
     }
 }
