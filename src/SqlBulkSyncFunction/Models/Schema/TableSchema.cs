@@ -23,6 +23,7 @@ namespace SqlBulkSyncFunction.Models.Schema
         public string CreateNewOrUpdatedSyncTableStatement { get; }
         public string CreateDeletedSyncTableStatement { get; }
         public string TruncateTargetTableStatement { get; }
+        public string SyncTableExistStatement { get; }
         public TableVersion SourceVersion { get; }
         public TableVersion TargetVersion { get; }
         public int BatchSize { get; }
@@ -44,8 +45,8 @@ namespace SqlBulkSyncFunction.Models.Schema
 
             SourceTableName = table.Source;
             TargetTableName = table.Target;
-            SyncNewOrUpdatedTableName = $"sync.[{bufferName}_{Guid.NewGuid()}]";
-            SyncDeletedTableName = $"sync.[{bufferName}_{Guid.NewGuid()}]";
+            SyncNewOrUpdatedTableName = FormattableString.Invariant($"sync.[{bufferName}_{DateTime.UtcNow:yyyyMMdd}_{targetVersion.CurrentVersion:00000000}_NewOrUpdated]");
+            SyncDeletedTableName = FormattableString.Invariant($"sync.[{bufferName}_{DateTime.UtcNow:yyyyMMdd}_{targetVersion.CurrentVersion:00000000}_DeletedTable]");
             Columns = columns;
             SourceVersion = sourceVersion;
             TargetVersion = targetVersion;
@@ -61,6 +62,7 @@ namespace SqlBulkSyncFunction.Models.Schema
             DropNewOrUpdatedTableStatement = SyncNewOrUpdatedTableName.GetDropStatement();
             DropDeletedTableStatement = SyncDeletedTableName.GetDropStatement();
             TruncateTargetTableStatement = this.GetTruncateTargetTableStatement();
+            SyncTableExistStatement = this.GetSyncTableExistStatement();
             BatchSize = batchSize ?? 1000;
         }
 

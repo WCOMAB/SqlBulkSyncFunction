@@ -13,6 +13,7 @@ namespace SqlBulkSyncFunction.Helpers
         public static void DropSyncTables(
             this SqlConnection targetConn,
             TableSchema tableSchema,
+            object scope,
             ILogger logger
             )
         {
@@ -41,15 +42,16 @@ namespace SqlBulkSyncFunction.Helpers
                             commandTimeout: 500000,
                             sql: table.DropStatement
                             );
-                        logger.LogInformation("Sync table {0} dropped.", table.Name);
+                        logger.LogInformation("{Scope} Sync table {Name} dropped.", scope, table.Name);
                     }
                     catch (Exception ex)
                     {
                         logger.LogError(
                             ex,
-                            "Failed to drop sync table {0}\r\n{1}",
+                            "{Scope} Failed to drop sync table {SyncNewOrUpdatedTableName}\r\n{Exception}",
+                            scope,
                             tableSchema.SyncNewOrUpdatedTableName,
-                            ex
+                            ex.Message
                             );
                     }
                 }
@@ -59,6 +61,7 @@ namespace SqlBulkSyncFunction.Helpers
         public static void MergeData(
             this SqlConnection targetConn,
             TableSchema tableSchema,
+            object scope,
             ILogger logger
             )
         {
@@ -66,12 +69,13 @@ namespace SqlBulkSyncFunction.Helpers
                 commandTimeout: 500000,
                 sql: tableSchema.MergeNewOrUpdateStatement
                 ).First();
-            logger.LogInformation("{0} records merged", rowCount);
+            logger.LogInformation("{Scope} {RowCount} records merged", scope, rowCount);
         }
 
         public static void DeleteData(
             this SqlConnection targetConn,
             TableSchema tableSchema,
+            object scope,
             ILogger Logger
             )
         {
@@ -79,13 +83,14 @@ namespace SqlBulkSyncFunction.Helpers
                 commandTimeout: 500000,
                 sql: tableSchema.DeleteStatement
                 ).First();
-            Logger.LogInformation("{0} records deleted", rowCount);
+            Logger.LogInformation("{Scope} {RowCount} records deleted.", scope, rowCount);
         }
 
         public static void BulkCopyData(
             this SqlConnection sourceConn,
             SqlConnection targetConn,
             TableSchema tableSchema,
+            object scope,
             ILogger logger
             )
         {
@@ -125,16 +130,29 @@ namespace SqlBulkSyncFunction.Helpers
                         BulkCopyTimeout = 300
                     };
 
-                    bcp.SqlRowsCopied += (s, e) => logger.LogInformation("{0} {1} rows copied", e.RowsCopied, table.Description);
+                    bcp.SqlRowsCopied += (s, e) => logger.LogInformation("{Scope} {RowsCopied} {Description} rows copied", scope, e.RowsCopied, table.Description);
                     bcp.WriteToServer(reader);
-                    logger.LogInformation("Bulk copy complete for {0}.", table.Description);
+                    logger.LogInformation("{Scope} Bulk copy complete for {Description}.", scope, table.Description);
                 }
                 );
+        }
+
+        public static bool SyncTablesExist(
+            this SqlConnection targetConn,
+            TableSchema tableSchema
+            )
+        {
+            return targetConn.Query<bool>(
+                        commandType: CommandType.Text,
+                        commandTimeout: 500,
+                        sql: tableSchema.SyncTableExistStatement
+                        ).First();
         }
 
         public static void CreateSyncTables(
             this SqlConnection targetConn,
             TableSchema tableSchema,
+            object scope,
             ILogger logger
             )
         {
@@ -159,13 +177,14 @@ namespace SqlBulkSyncFunction.Helpers
                         commandTimeout: 500,
                         sql: table.CreateStatement
                         );
-                    logger.LogInformation("Sync table {0} created.", table.Name, table.CreateStatement);
+                    logger.LogInformation("{Scope} Sync table {Name} created.", scope, table.Name);
                 }
                 );
         }
 
         public static void EnsureSyncSchemaAndTableExists(
-             this SqlConnection targetConn,
+            this SqlConnection targetConn,
+            object scope,
             ILogger logger
         )
         {
@@ -218,14 +237,15 @@ BEGIN
 END;"
             );
 
-            logger.LogInformation(qm.ReadFirst<string>());
-            logger.LogInformation(qm.ReadFirst<string>());
-            logger.LogInformation(qm.ReadFirst<string>());
+            logger.LogInformation("{Scope} {Result}", scope, qm.ReadFirst<string>());
+            logger.LogInformation("{Scope} {Result}", scope, qm.ReadFirst<string>());
+            logger.LogInformation("{Scope} {Result}", scope, qm.ReadFirst<string>());
         }
 
         public static void TruncateTargetTable(
             this SqlConnection targetConn,
             TableSchema tableSchema,
+            object scope,
             ILogger logger
         )
         {
@@ -236,15 +256,16 @@ END;"
                 CommandText = tableSchema.TruncateTargetTableStatement,
                 CommandTimeout = 500000
             };
-            logger.LogInformation("Truncating table {0}...", tableSchema.TargetTableName);
+            logger.LogInformation("{Scope} Truncating table {TargetTableName}...", scope, tableSchema.TargetTableName);
             targetCmd.ExecuteNonQuery();
-            logger.LogInformation("Truncated table {0}.", tableSchema.TargetTableName);
+            logger.LogInformation("{Scope} Truncated table {TargetTableName}.", scope, tableSchema.TargetTableName);
         }
 
         public static void BulkCopyDataDirect(
             this SqlConnection sourceConn,
             SqlConnection targetConn,
             TableSchema tableSchema,
+            object scope,
             ILogger logger
         )
         {
@@ -274,10 +295,10 @@ END;"
                 );
             }
 
-            logger.LogInformation("Bulk copy starting for {0}.", tableSchema.TargetTableName);
-            bcp.SqlRowsCopied += (s, e) => logger.LogInformation("{0} {1} rows copied", e.RowsCopied, tableSchema.TargetTableName);
+            logger.LogInformation("{Scope} Bulk copy starting for {TargetTableName}.", scope, tableSchema.TargetTableName);
+            bcp.SqlRowsCopied += (s, e) => logger.LogInformation("{Scope} {TargetTableName} {RowsCopied} rows copied", scope, tableSchema.TargetTableName, e.RowsCopied);
             bcp.WriteToServer(reader);
-            logger.LogInformation("Bulk copy complete for {0}.", tableSchema.TargetTableName);
+            logger.LogInformation("{Scope} Bulk copy complete for {TargetTableName}.", scope, tableSchema.TargetTableName);
         }
     }
 }

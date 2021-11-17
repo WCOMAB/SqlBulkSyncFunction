@@ -319,5 +319,16 @@ CREATE TABLE {0}(
 
         public static string GetTruncateTargetTableStatement(this TableSchema tableSchema)
             => string.Concat("TRUNCATE TABLE ", tableSchema.TargetTableName);
+
+        public static string GetSyncTableExistStatement(this TableSchema tableSchema)
+            => @$"
+DECLARE @True bit = 1,
+        @False bit = 0
+
+SELECT  CASE
+            WHEN OBJECT_ID('{tableSchema.SyncDeletedTableName}', 'U') IS NOT NULL THEN @True
+            WHEN OBJECT_ID('{tableSchema.SyncNewOrUpdatedTableName}', 'U') IS NOT NULL THEN @True
+            ELSE @False
+        END AS SyncTableExists";
     }
 }
