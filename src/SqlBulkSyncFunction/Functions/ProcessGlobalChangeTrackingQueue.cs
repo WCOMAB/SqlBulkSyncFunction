@@ -15,6 +15,7 @@ namespace SqlBulkSyncFunction.Functions
     {
 
         [Function(nameof(ProcessGlobalChangeTrackingQueue))]
+        
         public async Task Run([QueueTrigger(nameof(ProcessGlobalChangeTrackingQueue))] SyncJob syncJob)
         {
             if(syncJob == null)
@@ -22,11 +23,12 @@ namespace SqlBulkSyncFunction.Functions
                 return;
             }
 
-            using (Logger.BeginScope(new{ syncJob.Schedule,  syncJob.Id }))
+            var scope = new { syncJob.Schedule, syncJob.Id, syncJob.Area };
+            using (Logger.BeginScope(scope))
             {
                 if (syncJob.Expires < DateTimeOffset.UtcNow)
                 {
-                    Logger.LogWarning("Sync job expired: {Expires}", syncJob.Expires);
+                    Logger.LogWarning("Sync job {Scope} Schedule expired: {Expires}", scope, syncJob.Expires);
                     return;
                 }
 

@@ -61,7 +61,7 @@ namespace SqlBulkSyncFunction.Functions
                 {
                     if (timerInfo.IsPastDue)
                     {
-                        Logger.LogWarning("IsPastDue ({IsPastDue}) skipping.", timerInfo.IsPastDue);
+                        Logger.LogWarning("{Config} IsPastDue ({IsPastDue}) skipping.", config, timerInfo.IsPastDue);
                         return ProcessGlobalChangeTrackingResult.Empty;
                     }
 
@@ -74,7 +74,7 @@ namespace SqlBulkSyncFunction.Functions
                         .Select(job => job.Job.ToSyncJob(job.Key, config, tokenCache, expires, false))
                         .ToArray();
 
-                    Logger.LogInformation("Found {Length} jobs for schedule.", syncJobs.Length);
+                    Logger.LogInformation("{Config} Found {Length} jobs for schedule.", config, syncJobs.Length);
 
                     return new ProcessGlobalChangeTrackingResult(syncJobs);
                 }

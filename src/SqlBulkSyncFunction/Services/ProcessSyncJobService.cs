@@ -15,7 +15,8 @@ namespace SqlBulkSyncFunction.Services
     {
         public async Task ProcessSyncJob(SyncJob syncJob, bool globalChangeTracking)
         {
-            using (Logger.BeginScope(new {syncJob.Schedule, syncJob.Id}))
+            var scope = new { syncJob.Schedule, syncJob.Id, syncJob.Area };
+            using (Logger.BeginScope(scope))
             {
                 await using SqlConnection
                     sourceConn = new(syncJob.SourceDbConnection) {AccessToken = syncJob.SourceDbAccessToken},
@@ -25,26 +26,28 @@ namespace SqlBulkSyncFunction.Services
                     to = Logger.BeginScope($"{targetConn.DataSource}.{targetConn.Database}");
 
                 Logger.LogInformation(
-                    "Connecting to source database {0}.{1}",
+                    "{Scope} Connecting to source database {DataSource}.{Database}",
+                    scope,
                     sourceConn.DataSource,
                     sourceConn.Database
                 );
                 await sourceConn.OpenAsync();
-                Logger.LogInformation("Connected {0}", sourceConn.ClientConnectionId);
+                Logger.LogInformation("{Scope} Connected {ClientConnectionId}", scope, sourceConn.ClientConnectionId);
 
                 Logger.LogInformation(
-                    "Connecting to target database {0}.{1}",
+                    "{Scope} Connecting to target database {DataSource}.{Database}",
+                    scope,
                     targetConn.DataSource,
                     targetConn.Database
                 );
                 await targetConn.OpenAsync();
-                Logger.LogInformation("Connected {0}", targetConn.ClientConnectionId);
+                Logger.LogInformation("{Scope} Connected {ClientConnectionId}", scope, targetConn.ClientConnectionId);
 
-                Logger.LogInformation("Ensuring sync schema and table exists...");
-                targetConn.EnsureSyncSchemaAndTableExists(Logger);
-                Logger.LogInformation("Ensured sync schema and table exist");
+                Logger.LogInformation("{Scope} Ensuring sync schema and table exists...", scope);
+                targetConn.EnsureSyncSchemaAndTableExists(scope, Logger);
+                Logger.LogInformation("{Scope} Ensured sync schema and table exist", scope);
 
-                Logger.LogInformation("Fetching table schemas...");
+                Logger.LogInformation("{Scope} Fetching table schemas...", scope);
                 var schemaStopWatch = Stopwatch.StartNew();
                 var tableSchemas = (
                         syncJob.Tables
@@ -60,7 +63,7 @@ namespace SqlBulkSyncFunction.Services
                             )
                     ).ToArray();
                 schemaStopWatch.Stop();
-                Logger.LogInformation("Found {0} tables, duration {1}", tableSchemas.Length, schemaStopWatch.Elapsed);
+                Logger.LogInformation("{Scope} Found {0} tables, duration {1}", scope, tableSchemas.Length, schemaStopWatch.Elapsed);
 
                 Array.ForEach(
                     tableSchemas,
@@ -68,23 +71,23 @@ namespace SqlBulkSyncFunction.Services
                     {
                         using (Logger.BeginScope(tableSchema.Scope))
                         {
-                            Logger.LogInformation("Begin {0}", tableSchema.Scope);
+                            Logger.LogInformation("{Scope} Begin {0}", scope, tableSchema.Scope);
                             var syncStopWatch = Stopwatch.StartNew();
                             if (syncJob.Seed)
                             {
-                                SeedTable(targetConn, tableSchema, sourceConn);
+                                SeedTable(targetConn, tableSchema, sourceConn, scope);
                             }
                             else if (tableSchema.SourceVersion.Equals(tableSchema.TargetVersion))
                             {
-                                Logger.LogInformation("Already up to date");
+                                Logger.LogInformation("{Scope} Already up to date", scope);
                             }
                             else
                             {
-                                SyncTable(targetConn, tableSchema, sourceConn);
+                                SyncTable(targetConn, tableSchema, sourceConn, scope);
                             }
 
                             syncStopWatch.Stop();
-                            Logger.LogInformation("End {0}, duration {1}", tableSchema.Scope, syncStopWatch.Elapsed);
+                            Logger.LogInformation("{Scope} End {0}, duration {1}", scope, tableSchema.Scope, syncStopWatch.Elapsed);
                             targetConn.PersistsSourceTargetVersionState(tableSchema);
                         }
                     }
@@ -92,24 +95,28 @@ namespace SqlBulkSyncFunction.Services
             }
         }
 
-        private void SeedTable(SqlConnection targetConn, TableSchema tableSchema, SqlConnection sourceConn)
+        private void SeedTable(SqlConnection targetConn, TableSchema tableSchema, SqlConnection sourceConn, object scope)
         {
-            targetConn.TruncateTargetTable(tableSchema, Logger);
-            sourceConn.BulkCopyDataDirect(targetConn, tableSchema, Logger);
+            targetConn.TruncateTargetTable(tableSchema, scope, Logger);
+            sourceConn.BulkCopyDataDirect(targetConn, tableSchema, scope, Logger);
         }
 
-        private void SyncTable(SqlConnection targetConn, TableSchema tableSchema, SqlConnection sourceConn)
+        private void SyncTable(SqlConnection targetConn, TableSchema tableSchema, SqlConnection sourceConn, object scope)
         {
+            if (targetConn.SyncTablesExist(tableSchema))
+            {
+                throw new Exception($"{scope} Aborting! Sync tables already exists ({tableSchema.SyncNewOrUpdatedTableName}, {tableSchema.SyncDeletedTableName})");
+            }
             try
             {
-                targetConn.CreateSyncTables(tableSchema, Logger);
-                sourceConn.BulkCopyData(targetConn, tableSchema, Logger);
-                targetConn.DeleteData(tableSchema, Logger);
-                targetConn.MergeData(tableSchema, Logger);
+                targetConn.CreateSyncTables(tableSchema, scope, Logger);
+                sourceConn.BulkCopyData(targetConn, tableSchema, scope, Logger);
+                targetConn.DeleteData(tableSchema, scope, Logger);
+                targetConn.MergeData(tableSchema, scope, Logger);
             }
             finally
             {
-                targetConn.DropSyncTables(tableSchema, Logger);
+                targetConn.DropSyncTables(tableSchema, scope, Logger);
             }
         }
     }
