@@ -7,16 +7,16 @@ The service was developed primary for syncing on premise SQL server data to Azur
 
 ## Prerequisites
 
-- .NET 5 SDK  https://www.microsoft.com/net/download
-- Azure Functions Core Tools version 3.0.3381, or a later version. - https://docs.microsoft.com/en-us/azure/azure-functions/functions-run-local#v2
+- .NET 7 SDK - https://dotnet.microsoft.com/en-us/download
+- Azure Functions Core Tools version 4.0.4785, or a later version. - https://docs.microsoft.com/en-us/azure/azure-functions/functions-run-local#v2
 - Azure CLI version 2.20, or a later version. - https://docs.microsoft.com/en-us/cli/azure/install-azure-cli
 - IDE
-  - Visual Studio - 16.9.2, or a later version
-  - VS Code - 1.54.3, or a later version
+  - Visual Studio - 17.4.2, or a later version
+  - VS Code - 1.73.1, or a later version
 
 ## Configuration
 
-The function is configured through Azure App Settings / Environent variables, you can have multiple sync source/targets configures, and multiple tables per sync job.
+The function is configured through Azure App Settings / Environment variables, you can have multiple sync source/targets configures, and multiple tables per sync job.
 
 | Key                                                 | Description                               | Example                                                                      |
 |-----------------------------------------------------|-------------------------------------------|------------------------------------------------------------------------------|
