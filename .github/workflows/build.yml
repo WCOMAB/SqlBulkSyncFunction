@@ -12,23 +12,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-
-    - name: Setup .NET 3.1
-      uses: actions/setup-dotnet@v1
+    - name: Get the sources
+      uses: actions/checkout@v3
       with:
-        dotnet-version: '3.1.x'
+        fetch-depth: 0
 
-    - name: Setup .NET 5
-      uses: actions/setup-dotnet@v1
+    - name: Install .NET Core SDK (global.json)
+      uses: actions/setup-dotnet@v3
       with:
-        dotnet-version: '5.0.x'
+        global-json-file: global.json
 
     - name: Publish
       run: dotnet publish src --output ./artifacts
 
     - name: Upload a Build Artifact
-      uses: actions/upload-artifact@v2.2.3
+      uses: actions/upload-artifact@v3
       with:
         name: SqlBulkSyncFunction
         path: artifacts
