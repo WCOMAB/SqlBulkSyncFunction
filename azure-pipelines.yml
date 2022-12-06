@@ -22,6 +22,10 @@ steps:
     dotnet publish -p:Version=$(Build.BuildNumber) --configuration $(BuildConfiguration) -p:GenerateFullPaths=true --output "$(Build.ArtifactStagingDirectory)/Output" src/SqlBulkSyncFunction/SqlBulkSyncFunction.csproj
   displayName: .NET Publish $(ArtifactName)
 
+- script: |
+    dotnet pack -p:Version=$(Build.BuildNumber) --configuration $(BuildConfiguration) -p:GenerateFullPaths=true --output "$(Build.ArtifactStagingDirectory)/NuGet" src/SqlBulkSyncFunction/SqlBulkSyncFunction.csproj
+  displayName: .NET Pack $(ArtifactName)
+
 - task: ArchiveFiles@2
   displayName: Archive Output $(ArtifactName)
   inputs:
@@ -30,8 +34,13 @@ steps:
     archiveFile: $(Build.ArtifactStagingDirectory)/$(ArtifactName).zip
 
 - task: PublishPipelineArtifact@1
-  displayName: Publish Pipeline Artifact $(ArtifactName)
+  displayName: Publish Pipeline Artifact $(ArtifactName) Zip
   inputs:
     artifactName: $(ArtifactName)
     path: $(Build.ArtifactStagingDirectory)/$(ArtifactName).zip
 
+- task: PublishPipelineArtifact@1
+  displayName: Publish Pipeline Artifact $(ArtifactName) NuGet
+  inputs:
+    artifactName: "$(ArtifactName)NuGet"
+    path: $(Build.ArtifactStagingDirectory)/NuGet
