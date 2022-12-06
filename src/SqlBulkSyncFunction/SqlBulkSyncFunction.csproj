@@ -26,4 +26,31 @@
       <CopyToPublishDirectory>Never</CopyToPublishDirectory>
     </None>
   </ItemGroup>
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackBuildOutput>false</PackBuildOutput>
+    <ContentTargetFolders>contentFiles</ContentTargetFolders>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageIcon>WCOM128x128_squares.png</PackageIcon>
+    <Copyright>Copyright (c) WCOM AB</Copyright>
+    <Authors>Mattias Karlsson</Authors>
+    <Company>WCOM AB</Company>
+    <RepositoryUrl>https://github.com/WCOMAB/SqlBulkSyncFunction</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>SQL;Sync;Azure Function</PackageTags>
+    <PackageProjectUrl>https://wcom.se</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageDescription>A lightweight, performant non-intrusive SQL Server data sync service.</PackageDescription>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="NuGetizer" Version="0.9.1" PrivateAssets="all" />
+    <PackageFile Include="**/*.cs" Exclude="obj/**;bin/**" PackagePath="$(ContentTargetFolders)\cs\$(TargetFramework)\WCOM\%(RelativeDir)%(Filename)%(Extension)" />
+    <None Include="../../LICENSE" Pack="true" PackagePath="$(PackageLicenseFile)"/>
+    <None Include="../../README.md" Pack="true" PackagePath=""/>
+    <None Include="../WCOM128x128_squares.png" Pack="true" PackagePath=""/>
+  </ItemGroup>
 </Project>
