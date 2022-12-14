@@ -9,6 +9,7 @@ using SqlBulkSyncFunction.Models;
 using SqlBulkSyncFunction.Models.Job;
 using SqlBulkSyncFunction.Services;
 using SqlBulkSyncFunction.Helpers;
+using System.Collections.Generic;
 // ReSharper disable UnusedMember.Global
 
 namespace SqlBulkSyncFunction.Functions
@@ -66,7 +67,8 @@ namespace SqlBulkSyncFunction.Functions
                     }
 
                     var expires = DateTimeOffset.UtcNow.AddMinutes(4);
-                    var tokenCache = await TokenCacheService.GetTokenCache(SyncJobsConfig.Value.Jobs.Values);
+                    ICollection<SyncJobConfig> values = SyncJobsConfig?.Value?.Jobs?.Values;
+                    var tokenCache = await TokenCacheService.GetTokenCache(values ?? Array.Empty<SyncJobConfig>());
 
                     var syncJobs = SyncJobsConfig
                         .Value
