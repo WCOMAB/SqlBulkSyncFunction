@@ -67,8 +67,15 @@ namespace SqlBulkSyncFunction.Functions
                     }
 
                     var expires = DateTimeOffset.UtcNow.AddMinutes(4);
-                    ICollection<SyncJobConfig> values = SyncJobsConfig?.Value?.Jobs?.Values;
-                    var tokenCache = await TokenCacheService.GetTokenCache(values ?? Array.Empty<SyncJobConfig>());
+                    var values = SyncJobsConfig?.Value?.Jobs?.Values;
+
+                    if (values == null || values.Count == 0)
+                    {
+                        Logger.LogWarning("{Config} no jobs configured, skipping.", config);
+                        return ProcessGlobalChangeTrackingResult.Empty;
+                    }
+
+                    var tokenCache = await TokenCacheService.GetTokenCache(values);
 
                     var syncJobs = SyncJobsConfig
                         .Value

@@ -8,13 +8,14 @@ namespace SqlBulkSyncFunction.Models.Job
     {
         private static readonly string[] DefaultJobSchedules = {"Custom"};
 
-        public Dictionary<string, SyncJobConfig> Jobs { get; init; }
+        public Dictionary<string, SyncJobConfig> Jobs { get; init; } 
 
         public Lazy<ILookup<string, (string Key, SyncJobConfig Job)>> ScheduledJobs { get; }
+        private static Dictionary<string, SyncJobConfig> Empty { get; } = new Dictionary<string, SyncJobConfig>(0);
 
         private ILookup<string, (string Key, SyncJobConfig Job)> GetScheduledJobs()
             => (
-                from job in Jobs
+                from job in Jobs ?? Empty
                 where !job.Value.Manual.HasValue || job.Value.Manual == false
                 from schedule in GetJobSchedules(job)
                 select (Key: schedule, job.Value)
