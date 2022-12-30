@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
@@ -64,34 +65,57 @@ namespace SqlBulkSyncFunction.Services
                     ).ToArray();
                 schemaStopWatch.Stop();
                 Logger.LogInformation("{Scope} Found {0} tables, duration {1}", scope, tableSchemas.Length, schemaStopWatch.Elapsed);
-
+                var exceptions = new List<Exception>();
                 Array.ForEach(
                     tableSchemas,
                     tableSchema =>
                     {
-                        using (Logger.BeginScope(tableSchema.Scope))
+                        var syncStopWatch = Stopwatch.StartNew();
+                        try
                         {
-                            Logger.LogInformation("{Scope} Begin {0}", scope, tableSchema.Scope);
-                            var syncStopWatch = Stopwatch.StartNew();
-                            if (syncJob.Seed)
+                            using (Logger.BeginScope(tableSchema.Scope))
                             {
-                                SeedTable(targetConn, tableSchema, sourceConn, scope);
-                            }
-                            else if (tableSchema.SourceVersion.Equals(tableSchema.TargetVersion))
-                            {
-                                Logger.LogInformation("{Scope} Already up to date", scope);
-                            }
-                            else
-                            {
-                                SyncTable(targetConn, tableSchema, sourceConn, scope);
-                            }
+                                Logger.LogInformation("{Scope} Begin {TableSchemaScope}", scope, tableSchema.Scope);
+                                
+                                if (syncJob.Seed)
+                                {
+                                    SeedTable(targetConn, tableSchema, sourceConn, scope);
+                                }
+                                else if (tableSchema.SourceVersion.Equals(tableSchema.TargetVersion))
+                                {
+                                    Logger.LogInformation("{Scope} Already up to date", scope);
+                                }
+                                else
+                                {
+                                    SyncTable(targetConn, tableSchema, sourceConn, scope);
+                                }
 
+                                syncStopWatch.Stop();
+                                Logger.LogInformation("{Scope} End {TableSchemaScope}, duration {Elapsed}", scope, tableSchema.Scope, syncStopWatch.Elapsed);
+                                targetConn.PersistsSourceTargetVersionState(tableSchema);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
                             syncStopWatch.Stop();
-                            Logger.LogInformation("{Scope} End {0}, duration {1}", scope, tableSchema.Scope, syncStopWatch.Elapsed);
-                            targetConn.PersistsSourceTargetVersionState(tableSchema);
+                            Logger.LogError(
+                                ex,
+                                "{Scope} Exception {TableSchemaScope}, duration {Elapsed}, exception: {Message}",
+                                scope,
+                                tableSchema.Scope,
+                                syncStopWatch.Elapsed,
+                                ex.Message
+                                );
+
+                            exceptions.Add(ex);
                         }
                     }
                 );
+
+                if (exceptions.Any())
+                {
+                    throw new AggregateException($"{scope} sync failed", exceptions);
+                }
             }
         }
 
