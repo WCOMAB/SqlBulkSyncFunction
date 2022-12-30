@@ -130,7 +130,7 @@ namespace SqlBulkSyncFunction.Helpers
                         BulkCopyTimeout = 300
                     };
 
-                    bcp.SqlRowsCopied += (s, e) => logger.LogInformation("{Scope} {RowsCopied} {Description} rows copied", scope, e.RowsCopied, table.Description);
+                    bcp.SqlRowsCopied += (s, e) => logger.LogInformation("{Scope} {TableName} {RowsCopied} {Description} rows copied", scope, table.Name, e.RowsCopied, table.Description);
                     bcp.WriteToServer(reader);
                     logger.LogInformation("{Scope} Bulk copy complete for {Description}.", scope, table.Description);
                 }
