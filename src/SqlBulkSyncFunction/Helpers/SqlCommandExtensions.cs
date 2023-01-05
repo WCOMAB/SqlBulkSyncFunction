@@ -122,7 +122,7 @@ namespace SqlBulkSyncFunction.Helpers
 
                     using var reader = sourceCmd.ExecuteReader();
 
-                    using var bcp = new SqlBulkCopy(targetConn)
+                    using var bcp = new SqlBulkCopy(targetConn, SqlBulkCopyOptions.KeepIdentity, null)
                     {
                         DestinationTableName = table.Name,
                         BatchSize = tableSchema.BatchSize,
@@ -279,12 +279,12 @@ END;"
 
             using var reader = sourceCmd.ExecuteReader();
 
-            using var bcp = new SqlBulkCopy(targetConn)
+            using var bcp = new SqlBulkCopy(targetConn, SqlBulkCopyOptions.KeepIdentity, null)
             {
                 DestinationTableName = tableSchema.TargetTableName,
                 BatchSize = tableSchema.BatchSize,
                 NotifyAfter = tableSchema.BatchSize,
-                BulkCopyTimeout = 300
+                BulkCopyTimeout = 300,
             };
 
             foreach (var tableSchemaColumn in tableSchema.Columns)
