@@ -276,12 +276,24 @@ CREATE TABLE {0}(
             // ReSharper disable once UseStringInterpolation
             => string.Format(
                 @"SELECT  {0}
-    FROM {1} WITH(NOLOCK)",
+    FROM {1} WITH(NOLOCK)
+    {2}",
                 string.Join(
                     ",\r\n        ",
                     tableSchema.Columns.Select(column => column.QuoteName)
                 ),
-                tableSchema.SourceTableName
+                tableSchema.SourceTableName,
+                tableSchema.Columns.Any(column => column.IsPrimary && column.IsIdentity)
+                    ? string.Concat(
+                        "ORDER BY ",
+                    string.Join(
+                        ",\r\n        ",
+                        tableSchema.Columns
+                            .Where(column => column.IsPrimary && column.IsIdentity)
+                            .Select(column => string.Concat(column.QuoteName, " ASC"))
+                        )
+                    )
+                    : string.Empty
             );
 
         public static string GetNewOrUpdatedAtSourceSelectStatement(this TableSchema tableSchema)

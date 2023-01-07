@@ -127,7 +127,8 @@ namespace SqlBulkSyncFunction.Helpers
                         DestinationTableName = table.Name,
                         BatchSize = tableSchema.BatchSize,
                         NotifyAfter = tableSchema.BatchSize,
-                        BulkCopyTimeout = 300
+                        BulkCopyTimeout = 300,
+                        EnableStreaming= true
                     };
 
                     bcp.SqlRowsCopied += (s, e) => logger.LogInformation("{Scope} {TableName} {RowsCopied} {Description} rows copied", scope, table.Name, e.RowsCopied, table.Description);
@@ -284,7 +285,8 @@ END;"
                 DestinationTableName = tableSchema.TargetTableName,
                 BatchSize = tableSchema.BatchSize,
                 NotifyAfter = tableSchema.BatchSize,
-                BulkCopyTimeout = 300,
+                BulkCopyTimeout = 600,
+                EnableStreaming = true
             };
 
             foreach (var tableSchemaColumn in tableSchema.Columns)
@@ -293,6 +295,11 @@ END;"
                     tableSchemaColumn.Name,
                     tableSchemaColumn.Name
                 );
+
+                if (tableSchemaColumn.IsPrimary && tableSchemaColumn.IsIdentity)
+                {
+                    bcp.ColumnOrderHints.Add(tableSchemaColumn.Name, SortOrder.Ascending);
+                }
             }
 
             logger.LogInformation("{Scope} Bulk copy starting for {TargetTableName}.", scope, tableSchema.TargetTableName);
