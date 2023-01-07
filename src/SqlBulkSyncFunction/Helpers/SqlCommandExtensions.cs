@@ -295,6 +295,11 @@ END;"
                     tableSchemaColumn.Name,
                     tableSchemaColumn.Name
                 );
+
+                if (tableSchemaColumn.IsPrimary && tableSchemaColumn.IsIdentity)
+                {
+                    bcp.ColumnOrderHints.Add(tableSchemaColumn.Name, SortOrder.Ascending);
+                }
             }
 
             logger.LogInformation("{Scope} Bulk copy starting for {TargetTableName}.", scope, tableSchema.TargetTableName);
