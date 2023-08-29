@@ -13,7 +13,7 @@ await new HostBuilder()
                     (settings, configuration) => configuration.GetSection(nameof(SyncJobsConfig)).Bind(settings));
 
             configure
-                .AddSingleton<Microsoft.Azure.Services.AppAuthentication.AzureServiceTokenProvider>()
+                .AddSingleton<Azure.Identity.DefaultAzureCredential>()
                 .AddSingleton<IAzureSqlTokenService, AzureSqlTokenService>()
                 .AddSingleton<IProcessSyncJobService, ProcessSyncJobService>()
                 .AddSingleton<ITokenCacheService, TokenCacheService>();
