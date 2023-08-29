@@ -1,14 +1,27 @@
-﻿using System.Threading.Tasks;
-using Microsoft.Azure.Services.AppAuthentication;
+﻿using System;
+using System.Threading.Tasks;
+using Azure.Core;
+using Azure.Identity;
 
-namespace SqlBulkSyncFunction.Services
+namespace SqlBulkSyncFunction.Services;
+
+public record AzureSqlTokenService(DefaultAzureCredential DefaultAzureCredential) : IAzureSqlTokenService
 {
-    // ReSharper disable once UnusedMember.Global
-    public record AzureSqlTokenService(AzureServiceTokenProvider AzureServiceTokenProvider) : IAzureSqlTokenService
-    {
-        private const string AzureSqlResourceId = "https://database.windows.net/";
+    private const string AzureSqlResourceId = "https://database.windows.net/";
+    private static AccessToken? AccessToken = default;
 
-        public async Task<string> GetAccessToken(string tenantId)
-            => await AzureServiceTokenProvider.GetAccessTokenAsync(AzureSqlResourceId, string.IsNullOrWhiteSpace(tenantId) ? null : tenantId);
-    }
+
+    public async Task<string> GetAccessToken(string tenantId)
+        => (
+                AccessToken is { } validToken && validToken.ExpiresOn < DateTimeOffset.UtcNow.AddMinutes(5)
+                        ? validToken
+                        : (AccessToken = await DefaultAzureCredential.GetTokenAsync(
+                            new TokenRequestContext(
+                                new[] { AzureSqlResourceId },
+                                tenantId: string.IsNullOrWhiteSpace(tenantId) ? null : tenantId
+                                )
+                            )
+                ).Value
+            ).Token;
 }
+
