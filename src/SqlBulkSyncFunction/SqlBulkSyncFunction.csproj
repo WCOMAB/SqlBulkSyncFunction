@@ -8,7 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="AsyncEnumerator" Version="4.0.2" />
-    <PackageReference Include="Dapper" Version="2.0.123" />
+    <PackageReference Include="Dapper" Version="2.0.151" />
     <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Http" Version="3.0.13" />
     <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Storage" Version="5.0.1" />
     <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Timer" Version="4.1.0" />
@@ -49,8 +49,8 @@
     </PackageReference>
     <PackageReference Include="NuGetizer" Version="0.9.1" PrivateAssets="all" />
     <PackageFile Include="**/*.cs" Exclude="obj/**;bin/**" PackagePath="$(ContentTargetFolders)\cs\$(TargetFramework)\WCOM\%(RelativeDir)%(Filename)%(Extension)" />
-    <None Include="../../LICENSE" Pack="true" PackagePath="$(PackageLicenseFile)"/>
-    <None Include="../../README.md" Pack="true" PackagePath=""/>
-    <None Include="../WCOM128x128_squares.png" Pack="true" PackagePath=""/>
+    <None Include="../../LICENSE" Pack="true" PackagePath="$(PackageLicenseFile)" />
+    <None Include="../../README.md" Pack="true" PackagePath="" />
+    <None Include="../WCOM128x128_squares.png" Pack="true" PackagePath="" />
   </ItemGroup>
 </Project>
