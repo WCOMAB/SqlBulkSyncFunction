@@ -235,7 +235,11 @@ CREATE TABLE {0}(
         public static string GetDeletedAtSourceSelectStatement(this TableSchema tableSchema)
         {
             if (tableSchema.Columns == null || tableSchema.Columns.Length == 0)
-                throw new Exception("Columns missing");
+            {
+                throw new Exception(
+                    $"Columns for table {tableSchema.SourceTableName} missing ({tableSchema.Columns?.Length ?? -1})."
+                    );
+            }
 
             var primaryKeyColumns = tableSchema.Columns
                 .Where(column => column.IsPrimary)
@@ -299,7 +303,11 @@ CREATE TABLE {0}(
         public static string GetNewOrUpdatedAtSourceSelectStatement(this TableSchema tableSchema)
         {
             if (tableSchema.Columns == null || tableSchema.Columns.Length == 0)
-                throw new Exception("Columns missing");
+            {
+                throw new Exception(
+                    $"Columns for table {tableSchema.SourceTableName} missing ({tableSchema.Columns?.Length ?? -1})."
+                    );
+            }
 
             var statement = (tableSchema.TargetVersion.CurrentVersion <= 1)
                 // ReSharper disable once UseStringInterpolation
