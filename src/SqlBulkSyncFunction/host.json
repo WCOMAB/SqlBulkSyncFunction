@@ -2,6 +2,12 @@
   "version": "2.0",
   "functionTimeout": "01:00:00",
   "logging": {
+    "logLevel": {
+        "default": "Warning",
+        "Host.Results": "Warning",
+        "Function": "Warning",
+        "Host.Aggregator": "Warning"
+    },
     "applicationInsights": {
       "samplingSettings": {
         "isEnabled": true,
