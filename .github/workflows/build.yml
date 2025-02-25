@@ -13,12 +13,12 @@ jobs:
 
     steps:
     - name: Get the sources
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
     - name: Install .NET Core SDK (global.json)
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v4
       with:
         global-json-file: global.json
 
@@ -26,7 +26,7 @@ jobs:
       run: dotnet publish src --output ./artifacts
 
     - name: Upload a Build Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: SqlBulkSyncFunction
         path: artifacts
