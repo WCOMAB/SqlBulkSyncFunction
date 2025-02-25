@@ -26,7 +26,7 @@ steps:
     dotnet pack -p:Version=$(Build.BuildNumber) --configuration $(BuildConfiguration) -p:GenerateFullPaths=true --output "$(Build.ArtifactStagingDirectory)/NuGet" src/SqlBulkSyncFunction/SqlBulkSyncFunction.csproj
   displayName: .NET Pack $(ArtifactName)
 
-- task: ArchiveFiles@2
+- task: ArchiveFiles@2.246.3
   displayName: Archive Output $(ArtifactName)
   inputs:
     rootFolderOrFile: $(Build.ArtifactStagingDirectory)/Output
