@@ -33,13 +33,13 @@ steps:
     includeRootFolder: false
     archiveFile: $(Build.ArtifactStagingDirectory)/$(ArtifactName).zip
 
-- task: PublishPipelineArtifact@1
+- task: PublishPipelineArtifact@1.242.0
   displayName: Publish Pipeline Artifact $(ArtifactName) Zip
   inputs:
     artifactName: $(ArtifactName)
     path: $(Build.ArtifactStagingDirectory)/$(ArtifactName).zip
 
-- task: PublishPipelineArtifact@1
+- task: PublishPipelineArtifact@1.242.0
   displayName: Publish Pipeline Artifact $(ArtifactName) NuGet
   inputs:
     artifactName: "$(ArtifactName)NuGet"
