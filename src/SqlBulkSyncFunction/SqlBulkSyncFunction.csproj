@@ -47,7 +47,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="NuGetizer" Version="0.9.2" PrivateAssets="all" />
+    <PackageReference Include="NuGetizer" Version="1.2.4" PrivateAssets="all" />
     <PackageFile Include="**/*.cs" Exclude="obj/**;bin/**" PackagePath="$(ContentTargetFolders)\cs\$(TargetFramework)\WCOM\%(RelativeDir)%(Filename)%(Extension)" />
     <None Include="../../LICENSE" Pack="true" PackagePath="$(PackageLicenseFile)" />
     <None Include="../../README.md" Pack="true" PackagePath="" />
