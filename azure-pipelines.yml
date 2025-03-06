@@ -2,7 +2,8 @@ name: $(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)
 trigger:
 - main
 
-pool: WCOM
+pool:
+  vmImage: 'ubuntu-latest'
 
 variables:
   buildConfiguration: 'Release'
