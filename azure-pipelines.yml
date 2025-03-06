@@ -2,22 +2,13 @@ name: $(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)
 trigger:
 - main
 
-pool:
-  vmImage: 'windows-latest'
+pool: WCOM
 
 variables:
-  solution: '**/*.sln'
-  buildPlatform: 'Any CPU'
   buildConfiguration: 'Release'
   artifactName: 'SqlBulkSyncFunction'
 
 steps:
-- task: UseDotNet@2.251.1
-  displayName: 'Use .NET SDK global.json'
-  inputs:
-    packageType: sdk
-    useGlobalJson: true
-
 - script: |
     dotnet publish -p:Version=$(Build.BuildNumber) --configuration $(BuildConfiguration) -p:GenerateFullPaths=true --output "$(Build.ArtifactStagingDirectory)/Output" src/SqlBulkSyncFunction/SqlBulkSyncFunction.csproj
   displayName: .NET Publish $(ArtifactName)
