@@ -12,7 +12,7 @@ variables:
   artifactName: 'SqlBulkSyncFunction'
 
 steps:
-- task: UseDotNet@2.251.1
+- task: UseDotNet@2.254.1
   displayName: 'Use .NET SDK global.json'
   inputs:
     packageType: sdk
