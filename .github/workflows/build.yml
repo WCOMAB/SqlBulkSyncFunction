@@ -26,7 +26,7 @@ jobs:
       run: dotnet publish src --output ./artifacts
 
     - name: Upload a Build Artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: SqlBulkSyncFunction
         path: artifacts
