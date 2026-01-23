@@ -15,10 +15,10 @@ namespace SqlBulkSyncFunction.Functions
     {
 
         [Function(nameof(ProcessGlobalChangeTrackingQueue))]
-        
-        public async Task Run([QueueTrigger(nameof(ProcessGlobalChangeTrackingQueue))] SyncJob syncJob)
+
+        public async Task Run([QueueTrigger(SqlBulkSyncFunction.Constants.ProcessGlobalChangeTrackingQueue)] SyncJob syncJob)
         {
-            if(syncJob == null)
+            if (syncJob == null)
             {
                 return;
             }

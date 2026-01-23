@@ -15,9 +15,7 @@ namespace SqlBulkSyncFunction.Helpers
             TableSchema tableSchema,
             object scope,
             ILogger logger
-            )
-        {
-            Array.ForEach(
+            ) => Array.ForEach(
                 new[]
                 {
                     new
@@ -34,7 +32,10 @@ namespace SqlBulkSyncFunction.Helpers
                 table =>
                 {
                     if (string.IsNullOrEmpty(tableSchema?.SyncNewOrUpdatedTableName))
+                    {
                         return;
+                    }
+
                     try
                     {
                         targetConn.Execute(
@@ -56,7 +57,6 @@ namespace SqlBulkSyncFunction.Helpers
                     }
                 }
                 );
-        }
 
         public static void MergeData(
             this SqlConnection targetConn,
@@ -92,9 +92,7 @@ namespace SqlBulkSyncFunction.Helpers
             TableSchema tableSchema,
             object scope,
             ILogger logger
-            )
-        {
-            Array.ForEach(
+            ) => Array.ForEach(
                 new[]
                 {
                     new
@@ -128,7 +126,7 @@ namespace SqlBulkSyncFunction.Helpers
                         BatchSize = tableSchema.BatchSize,
                         NotifyAfter = tableSchema.BatchSize,
                         BulkCopyTimeout = 300,
-                        EnableStreaming= true
+                        EnableStreaming = true
                     };
 
                     bcp.SqlRowsCopied += (s, e) => logger.LogInformation("{Scope} {TableName} {RowsCopied} {Description} rows copied", scope, table.Name, e.RowsCopied, table.Description);
@@ -136,28 +134,22 @@ namespace SqlBulkSyncFunction.Helpers
                     logger.LogInformation("{Scope} Bulk copy complete for {Description}.", scope, table.Description);
                 }
                 );
-        }
 
         public static bool SyncTablesExist(
             this SqlConnection targetConn,
             TableSchema tableSchema
-            )
-        {
-            return targetConn.Query<bool>(
+            ) => targetConn.Query<bool>(
                         commandType: CommandType.Text,
                         commandTimeout: 500,
                         sql: tableSchema.SyncTableExistStatement
                         ).First();
-        }
 
         public static void CreateSyncTables(
             this SqlConnection targetConn,
             TableSchema tableSchema,
             object scope,
             ILogger logger
-            )
-        {
-            Array.ForEach(
+            ) => Array.ForEach(
                 new[]
                 {
                     new
@@ -181,7 +173,6 @@ namespace SqlBulkSyncFunction.Helpers
                     logger.LogInformation("{Scope} Sync table {Name} created.", scope, table.Name);
                 }
                 );
-        }
 
         public static void EnsureSyncSchemaAndTableExists(
             this SqlConnection targetConn,

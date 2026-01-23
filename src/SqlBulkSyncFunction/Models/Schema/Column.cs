@@ -1,6 +1,7 @@
 namespace SqlBulkSyncFunction.Models.Schema
 {
-    public record Column {
+    public record Column
+    {
         public string Name { get; set; }
         public string QuoteName { get; set; }
         public string Type { get; set; }
