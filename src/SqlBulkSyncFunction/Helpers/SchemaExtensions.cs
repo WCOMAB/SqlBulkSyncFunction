@@ -74,7 +74,8 @@ namespace SqlBulkSyncFunction.Helpers
         {
             var tableVersion = conn.Query<TableVersion>(
                     commandTimeout: 180,
-                    param: new {
+                    param: new
+                    {
                         TableName = tableName
                     },
                     sql: @"SELECT    TableName,
@@ -86,11 +87,11 @@ namespace SqlBulkSyncFunction.Helpers
                 )
                 .SingleOrDefault()
                     ?? new TableVersion
-                        {
-                            TableName = tableName,
-                            CurrentVersion = -1,
-                            MinValidVersion = -1
-                        };
+                    {
+                        TableName = tableName,
+                        CurrentVersion = -1,
+                        MinValidVersion = -1
+                    };
 
             return tableVersion;
         }
@@ -116,9 +117,7 @@ namespace SqlBulkSyncFunction.Helpers
             return result;
         }
 
-        public static Column[] GetColumns(this IDbConnection sourceConn, string tableName)
-        {
-            return sourceConn
+        public static Column[] GetColumns(this IDbConnection sourceConn, string tableName) => sourceConn
                 .Query<Column>(
                     commandTimeout: 5000,
                     param: new { TableName = tableName },
@@ -175,6 +174,5 @@ namespace SqlBulkSyncFunction.Helpers
             tp.name         <> 'timestamp'"
                 )
                 .ToArray();
-        }
     }
 }

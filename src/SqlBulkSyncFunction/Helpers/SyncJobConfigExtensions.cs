@@ -14,7 +14,7 @@ namespace SqlBulkSyncFunction.Helpers
             ConcurrentDictionary<string, string> tokenCache,
             DateTimeOffset expires,
             bool seed
-        ) => new (
+        ) => new(
                     id,
                     schedule,
                     job.Area,
@@ -41,18 +41,15 @@ namespace SqlBulkSyncFunction.Helpers
                     sourceTable.Value,
                     targetTableLookup?[sourceTable.Key].FirstOrDefault() switch
                     {
-                        { Length:>0 } overrideTargetTable => overrideTargetTable,
-                        _=> sourceTable.Value
+                        { Length: > 0 } overrideTargetTable => overrideTargetTable,
+                        _ => sourceTable.Value
                     }
                 )
             ).ToArray();
         }
 
-        private static string TryGetToken(SyncJobConfigDataSource dataSource, ConcurrentDictionary<string, string> tokenCache)
-        {
-            return dataSource.ManagedIdentity && tokenCache.TryGetValue(dataSource.TenantId ?? string.Empty, out var sourceToken)
+        private static string TryGetToken(SyncJobConfigDataSource dataSource, ConcurrentDictionary<string, string> tokenCache) => dataSource.ManagedIdentity && tokenCache.TryGetValue(dataSource.TenantId ?? string.Empty, out var sourceToken)
                 ? sourceToken
                 : null;
-        }
     }
 }

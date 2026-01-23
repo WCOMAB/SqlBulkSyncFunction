@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -20,8 +20,8 @@ namespace SqlBulkSyncFunction.Services
             using (Logger.BeginScope(scope))
             {
                 await using SqlConnection
-                    sourceConn = new(syncJob.SourceDbConnection) {AccessToken = syncJob.SourceDbAccessToken},
-                    targetConn = new(syncJob.TargetDbConnection) {AccessToken = syncJob.TargetDbAccessToken};
+                    sourceConn = new(syncJob.SourceDbConnection) { AccessToken = syncJob.SourceDbAccessToken },
+                    targetConn = new(syncJob.TargetDbConnection) { AccessToken = syncJob.TargetDbAccessToken };
 
                 using IDisposable from = Logger.BeginScope($"{sourceConn.DataSource}.{sourceConn.Database}"),
                     to = Logger.BeginScope($"{targetConn.DataSource}.{targetConn.Database}");
@@ -76,7 +76,7 @@ namespace SqlBulkSyncFunction.Services
                             using (Logger.BeginScope(tableSchema.Scope))
                             {
                                 Logger.LogInformation("{Scope} Begin {TableSchemaScope}", scope, tableSchema.Scope);
-                                
+
                                 if (syncJob.Seed)
                                 {
                                     SeedTable(targetConn, tableSchema, sourceConn, scope);

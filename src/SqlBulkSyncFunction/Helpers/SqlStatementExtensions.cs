@@ -45,16 +45,13 @@ SELECT  '{0}'                                               AS TableName,
                 );
         }
 
-        public static string GetDropStatement(this string tableName)
-        {
-            return string.Format(
+        public static string GetDropStatement(this string tableName) => string.Format(
                 @"IF OBJECT_ID('{0}') IS NOT NULL
 BEGIN
     DROP TABLE {0}
 END",
                 tableName
                 );
-        }
 
         public static string GetNewOrUpdatedMergeStatement(this TableSchema tableSchema)
         {

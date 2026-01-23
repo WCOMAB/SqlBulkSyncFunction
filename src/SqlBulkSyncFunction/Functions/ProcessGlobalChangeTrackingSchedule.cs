@@ -5,11 +5,10 @@ using System.Threading.Tasks;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using SqlBulkSyncFunction.Helpers;
 using SqlBulkSyncFunction.Models;
 using SqlBulkSyncFunction.Models.Job;
 using SqlBulkSyncFunction.Services;
-using SqlBulkSyncFunction.Helpers;
-using System.Collections.Generic;
 // ReSharper disable UnusedMember.Global
 
 namespace SqlBulkSyncFunction.Functions

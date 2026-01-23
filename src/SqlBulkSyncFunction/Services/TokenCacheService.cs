@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -42,14 +42,10 @@ namespace SqlBulkSyncFunction.Services
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ParallelForEachAsync(
                     maxDegreeOfParallelism: 4,
-                    asyncItemAction: async tenant =>
-                    {
-                        tokenCache.TryAdd(
+                    asyncItemAction: async tenant => tokenCache.TryAdd(
                             tenant,
                             await AzureSqlTokenService.GetAccessToken(tenant)
-                        );
-                    }
-                );
+                        ));
             return tokenCache;
 
         }

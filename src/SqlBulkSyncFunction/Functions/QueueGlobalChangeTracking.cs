@@ -1,6 +1,5 @@
 using System;
 using System.Net;
-using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
@@ -11,7 +10,7 @@ using SqlBulkSyncFunction.Models;
 using SqlBulkSyncFunction.Models.Job;
 using SqlBulkSyncFunction.Services;
 
-namespace  SqlBulkSyncFunction.Functions
+namespace SqlBulkSyncFunction.Functions
 {
     public record QueueGlobalChangeTracking(
         ILogger<QueueGlobalChangeTracking> Logger,
@@ -28,10 +27,7 @@ namespace  SqlBulkSyncFunction.Functions
             )] HttpRequestData req,
             string area,
             string id
-            )
-        {
-            return await GetQueueGlobalChangeTrackingResult(req, area, id);
-        }
+            ) => await GetQueueGlobalChangeTrackingResult(req, area, id);
 
         [Function(nameof(QueueGlobalChangeTracking) + nameof(Seed))]
         public async Task<QueueGlobalChangeTrackingResult> Seed(
@@ -43,10 +39,7 @@ namespace  SqlBulkSyncFunction.Functions
             string area,
             string id,
             bool seed
-        )
-        {
-            return await GetQueueGlobalChangeTrackingResult(req, area, id, seed);
-        }
+        ) => await GetQueueGlobalChangeTrackingResult(req, area, id, seed);
 
         private async Task<QueueGlobalChangeTrackingResult> GetQueueGlobalChangeTrackingResult(
             HttpRequestData req,
@@ -72,7 +65,7 @@ namespace  SqlBulkSyncFunction.Functions
                     expires: DateTimeOffset.UtcNow.AddMinutes(4),
                     id: id,
                     schedule: nameof(jobConfig.Manual),
-                    seed:seed
+                    seed: seed
                 ),
                 req.CreateResponse(HttpStatusCode.Accepted)
             );

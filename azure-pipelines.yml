@@ -1,46 +1,51 @@
 name: $(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)
+
 trigger:
 - main
 
-pool:
-  vmImage: 'windows-latest'
-
+pool: WCOM
+  
 variables:
-  solution: '**/*.sln'
-  buildPlatform: 'Any CPU'
-  buildConfiguration: 'Release'
-  artifactName: 'SqlBulkSyncFunction'
+  - group: common-build-variables
 
-steps:
-- task: UseDotNet@2.263.0
-  displayName: 'Use .NET SDK global.json'
-  inputs:
-    packageType: sdk
-    useGlobalJson: true
+resources:
+  repositories:
+    - repository: templates
+      type: github
+      endpoint: GitHubPublic
+      name: WCOMAB/WCOM.AzurePipelines.YamlTemplates
+      ref: refs/heads/main
 
-- script: |
-    dotnet publish -p:Version=$(Build.BuildNumber) --configuration $(BuildConfiguration) -p:GenerateFullPaths=true --output "$(Build.ArtifactStagingDirectory)/Output" src/SqlBulkSyncFunction/SqlBulkSyncFunction.csproj
-  displayName: .NET Publish $(ArtifactName)
-
-- script: |
-    dotnet pack -p:Version=$(Build.BuildNumber) --configuration $(BuildConfiguration) -p:GenerateFullPaths=true --output "$(Build.ArtifactStagingDirectory)/NuGet" src/SqlBulkSyncFunction/SqlBulkSyncFunction.csproj
-  displayName: .NET Pack $(ArtifactName)
-
-- task: ArchiveFiles@2.265.0
-  displayName: Archive Output $(ArtifactName)
-  inputs:
-    rootFolderOrFile: $(Build.ArtifactStagingDirectory)/Output
-    includeRootFolder: false
-    archiveFile: $(Build.ArtifactStagingDirectory)/$(ArtifactName).zip
-
-- task: PublishPipelineArtifact@1.242.0
-  displayName: Publish Pipeline Artifact $(ArtifactName) Zip
-  inputs:
-    artifactName: $(ArtifactName)
-    path: $(Build.ArtifactStagingDirectory)/$(ArtifactName).zip
-
-- task: PublishPipelineArtifact@1.242.0
-  displayName: Publish Pipeline Artifact $(ArtifactName) NuGet
-  inputs:
-    artifactName: "$(ArtifactName)NuGet"
-    path: $(Build.ArtifactStagingDirectory)/NuGet
+stages:
+- template: dotnetweb/stages.yml@templates
+  parameters:
+    devopsOrg: 'wcom'
+    system: 'sqlbulksync'
+    suffix: 'sqlbulksync'
+    webAppName: 'sqlbulksync'
+    build: Development
+    useDotNetSDK:
+      skipTask: true
+    skipTests: true
+    projectSrc: ./src/SqlBulkSyncFunction
+    buildParameters:
+      - '-c Release' 
+    shouldDeploy: eq(variables['Build.SourceBranch'], 'refs/heads/main')
+    dpi:
+      report: eq(variables['Build.SourceBranch'], 'refs/heads/main')
+      WorkspaceId: $(API.DEV.LogId)
+      SharedKey: $(API.DEV.LogKey)
+    environments:
+      - env: dev
+        name: Development
+        deploy: false
+    container:
+      csproj: './src/SqlBulkSyncFunction/SqlBulkSyncFunction.csproj'
+      artifact: 'wcom-sqlbulksync-image'
+      repository: 'wcom.sqlbulksync'
+      baseimage: 'mcr.microsoft.com/azure-functions/dotnet-isolated:4-dotnet-isolated10.0'
+      latest: true
+      servers:
+        - name: 'wcompublicacr.azurecr.io'
+          username: 'wcompublicacr'
+          password: '$(wcompublicacr.azurecr.io)'

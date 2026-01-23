@@ -7,40 +7,38 @@ The service was developed primary for syncing on premise SQL server data to Azur
 
 ## Prerequisites
 
-- .NET 7 SDK - https://dotnet.microsoft.com/en-us/download
-- Azure Functions Core Tools version 4.0.4785, or a later version. - https://docs.microsoft.com/en-us/azure/azure-functions/functions-run-local#v2
-- Azure CLI version 2.20, or a later version. - https://docs.microsoft.com/en-us/cli/azure/install-azure-cli
+- .NET 10 SDK - https://dotnet.microsoft.com/en-us/download
+- Azure Functions Core Tools version 4.0, or a later version - https://docs.microsoft.com/en-us/azure/azure-functions/functions-run-local#v2
+- Azure CLI version 2.50, or a later version - https://docs.microsoft.com/en-us/cli/azure/install-azure-cli
 - IDE
-  - Visual Studio - 17.4.2, or a later version
-  - VS Code - 1.73.1, or a later version
+  - Visual Studio 2022 17.10, or a later version
+  - VS Code 1.90, or a later version
 
 ## Configuration
 
 The function is configured through Azure App Settings / Environment variables, you can have multiple sync source/targets configures, and multiple tables per sync job.
 
-| Key                                                 | Description                               | Example                                                                      |
-|-----------------------------------------------------|-------------------------------------------|------------------------------------------------------------------------------|
-| `ProcessGlobalChangeTrackingSchedule`               | Custom schedule cron expression           | `0 */5 * * * *`                                                              |
-| `SyncJobsConfig:Jobs:[key]:Source:ConnectionString` | Source database connection string         | `Server=my.dbserver.net;Initial Catalog=MySourceDb;Integrated Security=True` |
-| `SyncJobsConfig:Jobs:[key]:Source:ManagedIdentity`  | Flag for if managed identity used         | `false`                                                                      |
-| `SyncJobsConfig:Jobs:[key]:Source:TenantId`         | Azure tenant ID used for managed identity | `46b41530-1e0d-4403-b815-24815944aa6a`                                       |
-| `SyncJobsConfig:Jobs:[key]:Target:ConnectionString` | Target database connection string         | `Server=my.dbserver.net;Initial Catalog=MyTargetDb;Integrated Security=True` |
-| `SyncJobsConfig:Jobs:[key]:Target:ManagedIdentity`  | Flag for if managed identity used         | `true`                                                                       |
-| `SyncJobsConfig:Jobs:[key]:Target:TenantId`         | Azure tenant ID used for managed identity | `46b41530-1e0d-4403-b815-24815944aa6a`                                       |
-| `SyncJobsConfig:Jobs:[key]:BatchSize`               | Bulk sync batch size                      | `1000`                                                                       |
-| `SyncJobsConfig:Jobs:[key]:Area`                    | Area name, used to manually trigger sync  | `Development`                                                                |
-| `SyncJobsConfig:Jobs:[key]:Manual`                  | Flag is sync excluded from schedules      | `true`                                                                       |
-| `SyncJobsConfig:Jobs:[key]:Schedules:[key]`         | Optional opt-in/out schedules             | `true`                                                                       |
-| `SyncJobsConfig:Jobs:[key]:Tables:[key]`            | Fully qualified name of table to sync     | `dbo.MyTable`                                                                |
+| Key                                                                 | Description                               | Example                                                                      |
+|---------------------------------------------------------------------|-------------------------------------------|------------------------------------------------------------------------------|
+| `ProcessGlobalChangeTrackingSchedule`                               | Custom schedule cron expression           | `0 */5 * * * *`                                                              |
+| `SyncJobsConfig__Jobs__[key]__Source__ConnectionString`             | Source database connection string         | `Server=my.dbserver.net;Initial Catalog=MySourceDb;Integrated Security=True` |
+| `SyncJobsConfig__Jobs__[key]__Source__ManagedIdentity`              | Flag for if managed identity used         | `false`                                                                      |
+| `SyncJobsConfig__Jobs__[key]__Source__TenantId`                     | Azure tenant ID used for managed identity | `46b41530-1e0d-4403-b815-24815944aa6a`                                       |
+| `SyncJobsConfig__Jobs__[key]__Target__ConnectionString`             | Target database connection string         | `Server=my.dbserver.net;Initial Catalog=MyTargetDb;Integrated Security=True` |
+| `SyncJobsConfig__Jobs__[key]__Target__ManagedIdentity`              | Flag for if managed identity used         | `true`                                                                       |
+| `SyncJobsConfig__Jobs__[key]__Target__TenantId`                     | Azure tenant ID used for managed identity | `46b41530-1e0d-4403-b815-24815944aa6a`                                       |
+| `SyncJobsConfig__Jobs__[key]__BatchSize`                            | Bulk sync batch size                      | `1000`                                                                       |
+| `SyncJobsConfig__Jobs__[key]__Area`                                 | Area name, used to manually trigger sync  | `Development`                                                                |
+| `SyncJobsConfig__Jobs__[key]__Manual`                               | Flag is sync excluded from schedules      | `true`                                                                       |
+| `SyncJobsConfig__Jobs__[key]__Schedules__[key]`                     | Optional opt-in/out schedules             | `true`                                                                       |
+| `SyncJobsConfig__Jobs__[key]__Tables__[key]`                        | Fully qualified name of table to sync     | `dbo.MyTable`                                                                |
 
 
 > Note:
 >
-> Replace `[key]` with unique name of sync job / table config i.e. `MySync` / `MyTable` would result in `SyncJobsConfig:Jobs:MySync:Tables:MyTable`=`dbo.MyTable`
+> Replace `[key]` with unique name of sync job / table config i.e. `MySync` / `MyTable` would result in `SyncJobsConfig__Jobs__MySync__Tables__MyTable`=`dbo.MyTable`
 >
-> Non-Windows operating systems you'll need to replace `:` with `__`, i.e. `SyncJobsConfig__Jobs__MySync__Tables__MyTable`
->
-> Configuration from KeyVault replace `:` with `--` i.e. `SyncJobsConfig--Jobs--MySync--Tables--MyTable`
+> Configuration from KeyVault replace `__` with `--` i.e. `SyncJobsConfig--Jobs--MySync--Tables--MyTable`
 
 ## Schedules
 
@@ -71,23 +69,49 @@ To quicker get started testing the function locally example configuration and da
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
     "ProcessGlobalChangeTrackingSchedule": "0 23 11 * * *",
-    "SyncJobsConfig:Jobs:SyncTest:Area": "SyncTest",
-    "SyncJobsConfig:Jobs:SyncTest:Source:ConnectionString": "Server=localhost;Initial Catalog=SyncTest;Integrated Security=True",
-    "SyncJobsConfig:Jobs:SyncTest:Source:ManagedIdentity": false,
-    "SyncJobsConfig:Jobs:SyncTest:Target:ConnectionString": "Server=localhost;Initial Catalog=SyncTest;Integrated Security=True",
-    "SyncJobsConfig:Jobs:SyncTest:Target:ManagedIdentity": false,
-    "SyncJobsConfig:Jobs:SyncTest:BatchSize": 1000,
-    "SyncJobsConfig:Jobs:SyncTest:Manual": false,
-    "SyncJobsConfig:Jobs:SyncTest:Tables:Test": "source.[Test]",
-    "SyncJobsConfig:Jobs:SyncTest:TargetTables:Test": "target.[Test]",
-    "SyncJobsConfig:Jobs:SyncTest:Schedules:Custom": true,
-    "SyncJobsConfig:Jobs:SyncTest:Schedules:Noon": true,
-    "SyncJobsConfig:Jobs:SyncTest:Schedules:Midnight": true,
-    "SyncJobsConfig:Jobs:SyncTest:Schedules:EveryFiveMinutes": true,
-    "SyncJobsConfig:Jobs:SyncTest:Schedules:EveryHour": true
+    "SyncJobsConfig__Jobs__SyncTest__Area": "SyncTest",
+    "SyncJobsConfig__Jobs__SyncTest__Source__ConnectionString": "Server=localhost;Initial Catalog=SyncTest;Integrated Security=True",
+    "SyncJobsConfig__Jobs__SyncTest__Source__ManagedIdentity": false,
+    "SyncJobsConfig__Jobs__SyncTest__Target__ConnectionString": "Server=localhost;Initial Catalog=SyncTest;Integrated Security=True",
+    "SyncJobsConfig__Jobs__SyncTest__Target__ManagedIdentity": false,
+    "SyncJobsConfig__Jobs__SyncTest__BatchSize": 1000,
+    "SyncJobsConfig__Jobs__SyncTest__Manual": false,
+    "SyncJobsConfig__Jobs__SyncTest__Tables__Test": "source.[Test]",
+    "SyncJobsConfig__Jobs__SyncTest__TargetTables__Test": "target.[Test]",
+    "SyncJobsConfig__Jobs__SyncTest__Schedules__Custom": true,
+    "SyncJobsConfig__Jobs__SyncTest__Schedules__Noon": true,
+    "SyncJobsConfig__Jobs__SyncTest__Schedules__Midnight": true,
+    "SyncJobsConfig__Jobs__SyncTest__Schedules__EveryFiveMinutes": true,
+    "SyncJobsConfig__Jobs__SyncTest__Schedules__EveryHour": true
   }
 }
 ```
+
+### Example .env file for Docker
+
+```
+# Environment variables for running SqlBulkSyncFunction in Docker
+
+AzureWebJobsStorage=UseDevelopmentStorage=true
+FUNCTIONS_WORKER_RUNTIME=dotnet-isolated
+ProcessGlobalChangeTrackingSchedule=0 23 11 * * *
+SyncJobsConfig__Jobs__SyncTest__Area=SyncTest
+SyncJobsConfig__Jobs__SyncTest__Source__ConnectionString=Server=localhost;Initial Catalog=SyncTest;Integrated Security=True
+SyncJobsConfig__Jobs__SyncTest__Source__ManagedIdentity=false
+SyncJobsConfig__Jobs__SyncTest__Target__ConnectionString=Server=localhost;Initial Catalog=SyncTest;Integrated Security=True
+SyncJobsConfig__Jobs__SyncTest__Target__ManagedIdentity=false
+SyncJobsConfig__Jobs__SyncTest__BatchSize=1000
+SyncJobsConfig__Jobs__SyncTest__Manual=false
+SyncJobsConfig__Jobs__SyncTest__Tables__Test=source.[Test]
+SyncJobsConfig__Jobs__SyncTest__TargetTables__Test=target.[Test]
+SyncJobsConfig__Jobs__SyncTest__Schedules__Custom=true
+SyncJobsConfig__Jobs__SyncTest__Schedules__Noon=true
+SyncJobsConfig__Jobs__SyncTest__Schedules__Midnight=true
+SyncJobsConfig__Jobs__SyncTest__Schedules__EveryFiveMinutes=true
+SyncJobsConfig__Jobs__SyncTest__Schedules__EveryHour=true
+```
+
+
 
 ### Example database seed script
 

@@ -1,13 +1,14 @@
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using SqlBulkSyncFunction.Models.Job;
 using SqlBulkSyncFunction.Services;
 
 await new HostBuilder()
     .ConfigureFunctionsWorkerDefaults()
     .ConfigureServices(
-        configure => {
+        configure =>
+        {
             configure.AddOptions<SyncJobsConfig>()
                 .Configure<IConfiguration>(
                     (settings, configuration) => configuration.GetSection(nameof(SyncJobsConfig)).Bind(settings));

@@ -6,9 +6,9 @@ namespace SqlBulkSyncFunction.Models.Job
 {
     public record SyncJobsConfig
     {
-        private static readonly string[] DefaultJobSchedules = {"Custom"};
+        private static readonly string[] DefaultJobSchedules = { "Custom" };
 
-        public Dictionary<string, SyncJobConfig> Jobs { get; init; } 
+        public Dictionary<string, SyncJobConfig> Jobs { get; init; }
 
         public Lazy<ILookup<string, (string Key, SyncJobConfig Job)>> ScheduledJobs { get; }
         private static Dictionary<string, SyncJobConfig> Empty { get; } = new Dictionary<string, SyncJobConfig>(0);
@@ -33,12 +33,9 @@ namespace SqlBulkSyncFunction.Models.Job
             )
                 ? DefaultJobSchedules
                 : job.Value.Schedules
-                    .Where(value=>value.Value)
-                    .Select(key=>key.Key);
+                    .Where(value => value.Value)
+                    .Select(key => key.Key);
 
-        public SyncJobsConfig()
-        {
-            ScheduledJobs = new Lazy<ILookup<string, (string Key, SyncJobConfig Job)>>(GetScheduledJobs);
-        }
+        public SyncJobsConfig() => ScheduledJobs = new Lazy<ILookup<string, (string Key, SyncJobConfig Job)>>(GetScheduledJobs);
     }
 }
