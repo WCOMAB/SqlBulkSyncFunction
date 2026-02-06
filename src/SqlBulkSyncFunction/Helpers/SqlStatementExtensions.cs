@@ -95,7 +95,7 @@ SELECT @@ROWCOUNT AS [RowCount];
                     ),
                 string.Join(
                     ",\r\n            ",
-                    tableSchema.Columns.Where(column => !column.IsPrimary).Select(
+                    tableSchema.Columns.Where(column => !column.IsPrimary && !column.IsIdentity).Select(
                         column => string.Concat(
                             column.QuoteName,
                             " = source.",
