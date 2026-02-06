@@ -6,7 +6,9 @@
         "default": "Warning",
         "Host.Results": "Warning",
         "Function": "Warning",
-        "Host.Aggregator": "Warning"
+        "Host.Aggregator": "Warning",
+        "Azure.Core": "Error",
+        "Azure": "Error"
     },
     "applicationInsights": {
       "samplingSettings": {

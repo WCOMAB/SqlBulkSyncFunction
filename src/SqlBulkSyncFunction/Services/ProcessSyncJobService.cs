@@ -51,8 +51,7 @@ namespace SqlBulkSyncFunction.Services
                 Logger.LogInformation("{Scope} Fetching table schemas...", scope);
                 var schemaStopWatch = Stopwatch.StartNew();
                 var tableSchemas = (
-                        syncJob.Tables
-                        ?? Array.Empty<SyncJobTable>()
+                        syncJob.Tables ?? []
                     )
                     .Select(
                         table => TableSchema.LoadSchema(

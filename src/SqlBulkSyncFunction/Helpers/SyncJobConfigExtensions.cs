@@ -36,16 +36,23 @@ namespace SqlBulkSyncFunction.Helpers
                 StringComparer.OrdinalIgnoreCase
             );
 
-            return job.Tables.Select(
+            var disableTargetIdentityInsertTables = job.DisableTargetIdentityInsertTables?.ToLookup(
+                key => key.Key,
+                value => value.Value,
+                StringComparer.OrdinalIgnoreCase
+            );
+
+            return [.. job.Tables.Select(
                 sourceTable => new SyncJobTable(
                     sourceTable.Value,
                     targetTableLookup?[sourceTable.Key].FirstOrDefault() switch
                     {
                         { Length: > 0 } overrideTargetTable => overrideTargetTable,
                         _ => sourceTable.Value
-                    }
+                    },
+                    disableTargetIdentityInsertTables?[sourceTable.Key].FirstOrDefault() ?? false
                 )
-            ).ToArray();
+            )];
         }
 
         private static string TryGetToken(SyncJobConfigDataSource dataSource, ConcurrentDictionary<string, string> tokenCache) => dataSource.ManagedIdentity && tokenCache.TryGetValue(dataSource.TenantId ?? string.Empty, out var sourceToken)

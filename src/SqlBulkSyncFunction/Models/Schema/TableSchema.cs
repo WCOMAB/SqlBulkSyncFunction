@@ -27,6 +27,7 @@ namespace SqlBulkSyncFunction.Models.Schema
         public TableVersion SourceVersion { get; }
         public TableVersion TargetVersion { get; }
         public int BatchSize { get; }
+        public bool DisableTargetIdentityInsert { get; }
         private TableSchema(
             SyncJobTable table,
             Column[] columns,
@@ -45,6 +46,7 @@ namespace SqlBulkSyncFunction.Models.Schema
 
             SourceTableName = table.Source;
             TargetTableName = table.Target;
+            DisableTargetIdentityInsert = table.DisableTargetIdentityInsert;
             SyncNewOrUpdatedTableName = FormattableString.Invariant($"sync.[{bufferName}_{DateTime.UtcNow:yyyyMMdd}_{targetVersion.CurrentVersion:00000000}_NewOrUpdated]");
             SyncDeletedTableName = FormattableString.Invariant($"sync.[{bufferName}_{DateTime.UtcNow:yyyyMMdd}_{targetVersion.CurrentVersion:00000000}_DeletedTable]");
             Columns = columns;
@@ -57,7 +59,7 @@ namespace SqlBulkSyncFunction.Models.Schema
             SourceNewOrUpdatedSelectStatement = this.GetNewOrUpdatedAtSourceSelectStatement();
             SourceSelectAllStatement = this.GetSourceSelectAllStatement();
             SourceDeletedSelectStatement = this.GetDeletedAtSourceSelectStatement();
-            MergeNewOrUpdateStatement = this.GetNewOrUpdatedMergeStatement();
+            MergeNewOrUpdateStatement = this.GetNewOrUpdatedMergeStatement(DisableTargetIdentityInsert);
             DeleteStatement = this.GetDeleteStatement();
             DropNewOrUpdatedTableStatement = SyncNewOrUpdatedTableName.GetDropStatement();
             DropDeletedTableStatement = SyncDeletedTableName.GetDropStatement();
