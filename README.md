@@ -115,6 +115,10 @@ SyncJobsConfig__Jobs__SyncTest__Schedules__EveryHour=true
 
 ### Example database seed script
 
+Run the source script first (creates database and change tracking), then the target script.
+
+**Source (database, schema, table, change tracking, seed data):**
+
 ```sql
 -- Create Database
 CREATE DATABASE [SyncTest]
@@ -128,13 +132,9 @@ SET CHANGE_TRACKING = ON (
   )
 GO
 
--- Create schemas
+-- Create source schema and table
 CREATE SCHEMA [source]
 GO
-CREATE SCHEMA [target]
-GO
-
--- Create tables
 CREATE TABLE [source].[Test](
   [Id] [bigint] IDENTITY(1,1) NOT NULL PRIMARY KEY,
   [Description] [nvarchar](256) NULL,
@@ -142,16 +142,6 @@ CREATE TABLE [source].[Test](
 )
 GO
 ALTER TABLE [source].[Test] ENABLE CHANGE_TRACKING WITH(TRACK_COLUMNS_UPDATED = ON)
-GO
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-CREATE TABLE [target].[Test](
-  [Id] [bigint] IDENTITY(1,1) NOT NULL PRIMARY KEY,
-  [Description] [nvarchar](256) NULL,
-  [Created] [datetime] NOT NULL
-)
 GO
 
 -- Seed data
@@ -173,3 +163,74 @@ INSERT INTO source.[Test]
     GETDATE()
   )
 ```
+
+**Target (schema and table):**
+
+```sql
+USE [SyncTest]
+GO
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE SCHEMA [target]
+GO
+CREATE TABLE [target].[Test](
+  [Id] [bigint] IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  [Description] [nvarchar](256) NULL,
+  [Created] [datetime] NOT NULL
+)
+GO
+```
+
+### Example permissions for sync
+
+Grant the identity that runs the sync (e.g. managed identity or SQL login) the permissions below. Replace `[your-sync-identity]` with that principal.
+
+**Source database (read and change tracking):**
+
+```sql
+USE [SyncTest]
+GO
+
+CREATE ROLE [SyncOperator]
+GO
+ALTER ROLE [SyncOperator] ADD MEMBER [your-sync-identity]
+GO
+
+-- Per table: change tracking, definition, and read
+GRANT VIEW CHANGE TRACKING ON [source].[Test] TO [SyncOperator]
+GO
+GRANT VIEW DEFINITION ON [source].[Test] TO [SyncOperator]
+GO
+GRANT SELECT ON [source].[Test] TO [SyncOperator]
+GO
+```
+
+**Target database (sync schema and table DML):**
+
+```sql
+USE [SyncTest]
+GO
+
+CREATE ROLE [SyncOperatorTarget]
+GO
+ALTER ROLE [SyncOperatorTarget] ADD MEMBER [your-sync-identity]
+GO
+
+-- Schema for sync metadata tables
+CREATE SCHEMA [sync]
+GO
+GRANT SELECT, INSERT, DELETE, UPDATE, ALTER, CONTROL ON SCHEMA::[sync] TO [SyncOperatorTarget]
+GO
+ALTER AUTHORIZATION ON SCHEMA::[sync] TO [SyncOperatorTarget]
+GO
+GRANT CREATE TABLE TO [SyncOperatorTarget]
+GO
+
+-- Per target table: DML and ALTER (e.g. for sync metadata)
+GRANT SELECT, INSERT, DELETE, UPDATE, ALTER ON [target].[Test] TO [SyncOperatorTarget]
+GO
+```
+
