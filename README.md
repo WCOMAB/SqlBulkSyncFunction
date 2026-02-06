@@ -32,11 +32,14 @@ The function is configured through Azure App Settings / Environment variables, y
 | `SyncJobsConfig__Jobs__[key]__Manual`                               | Flag is sync excluded from schedules      | `true`                                                                       |
 | `SyncJobsConfig__Jobs__[key]__Schedules__[key]`                     | Optional opt-in/out schedules             | `true`                                                                       |
 | `SyncJobsConfig__Jobs__[key]__Tables__[key]`                        | Fully qualified name of table to sync     | `dbo.MyTable`                                                                |
+| `SyncJobsConfig__Jobs__[key]__DisableTargetIdentityInsertTables__[key]` | Optional, per table. When `true`, merge does not use `IDENTITY_INSERT` on target (use when target has no identity column but source does). | `true` or `false` |
 
 
 > Note:
 >
 > Replace `[key]` with unique name of sync job / table config i.e. `MySync` / `MyTable` would result in `SyncJobsConfig__Jobs__MySync__Tables__MyTable`=`dbo.MyTable`
+>
+> **DisableTargetIdentityInsertTables**: Omit or set to `false` to copy identity values from source (default). Set to `true` per table when the target schema has no identity column but the source does.
 >
 > Configuration from KeyVault replace `__` with `--` i.e. `SyncJobsConfig--Jobs--MySync--Tables--MyTable`
 

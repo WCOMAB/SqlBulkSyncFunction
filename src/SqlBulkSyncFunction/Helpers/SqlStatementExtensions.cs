@@ -53,9 +53,9 @@ END",
                 tableName
                 );
 
-        public static string GetNewOrUpdatedMergeStatement(this TableSchema tableSchema)
+        public static string GetNewOrUpdatedMergeStatement(this TableSchema tableSchema, bool disableTargetIdentityInsert)
         {
-            var identityInsert = tableSchema.Columns.Any(column => column.IsIdentity);
+            var identityInsert = !disableTargetIdentityInsert && tableSchema.Columns.Any(column => column.IsIdentity);
             var statement = string.Format(
                 @"{6};
 MERGE {0} AS target
