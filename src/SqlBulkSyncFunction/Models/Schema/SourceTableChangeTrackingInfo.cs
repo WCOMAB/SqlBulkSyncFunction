@@ -9,13 +9,11 @@ namespace SqlBulkSyncFunction.Models.Schema;
 /// <param name="TrackColumnsUpdated">Whether column-level change tracking is enabled.</param>
 /// <param name="MinValidVersion">Minimum valid change tracking version for the table.</param>
 /// <param name="CurrentDatabaseVersion">Current change tracking version of the database.</param>
-/// <param name="EstimateRowCount">Estimated row count for the table.</param>
 public record SourceTableChangeTrackingInfo(
     int TableObjectId,
     string SchemaName,
     string TableName,
     bool TrackColumnsUpdated,
     long MinValidVersion,
-    long CurrentDatabaseVersion,
-    long? EstimateRowCount
+    long CurrentDatabaseVersion
 );

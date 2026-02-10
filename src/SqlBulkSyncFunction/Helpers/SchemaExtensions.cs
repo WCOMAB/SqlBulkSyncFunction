@@ -36,69 +36,20 @@ public static class SchemaExtensions
 
     /// <summary>
     /// Query to retrieve change tracking metadata for all tracked tables in the database.
-    /// Uses COUNT(*) per table so only SELECT on each table is required; no VIEW DATABASE PERFORMANCE STATE.
-    /// EstimateRowCount is exact but may be slow on very large tables.
     /// </summary>
     public const string SourceTableChangeTrackingInfoQuery =
         """
-        CREATE TABLE #Base (
-            TableObjectId     INT NOT NULL,
-            SchemaName        SYSNAME NOT NULL,
-            TableName         SYSNAME NOT NULL,
-            TrackColumnsUpdated BIT NOT NULL,
-            MinValidVersion   BIGINT NOT NULL,
-            CurrentDatabaseVersion BIGINT NOT NULL
-        );
-        INSERT #Base
         SELECT
             t.object_id                                     AS TableObjectId,
             s.name                                          AS SchemaName,
             t.name                                          AS TableName,
-            CAST(ctt.is_track_columns_updated_on AS bit)    AS TrackColumnsUpdated,
+            CAST(ctt.is_track_columns_updated_on as bit)    AS TrackColumnsUpdated,
             CHANGE_TRACKING_MIN_VALID_VERSION(t.object_id)  AS MinValidVersion,
             CHANGE_TRACKING_CURRENT_VERSION()               AS CurrentDatabaseVersion
         FROM sys.change_tracking_tables AS ctt
             JOIN sys.tables  AS t ON t.object_id = ctt.object_id
             JOIN sys.schemas AS s ON s.schema_id = t.schema_id
         ORDER BY s.name, t.name;
-
-        CREATE TABLE #Counts (TableObjectId INT NOT NULL, EstimateRowCount BIGINT NULL);
-
-        DECLARE @object_id INT, @schema SYSNAME, @table SYSNAME, @sql NVARCHAR(MAX);
-        DECLARE c CURSOR LOCAL FAST_FORWARD FOR
-            SELECT TableObjectId, SchemaName, TableName FROM #Base;
-        OPEN c;
-        FETCH NEXT FROM c INTO @object_id, @schema, @table;
-        WHILE @@FETCH_STATUS = 0
-        BEGIN
-            BEGIN TRY
-                SET @sql = N'SELECT ' + CAST(@object_id as nvarchar(max)) + N' , COUNT(*)
-                                FROM ' + QUOTENAME(@schema) + N'.' + QUOTENAME(@table) + 'WITH(NOLOCK)';
-                INSERT INTO #Counts (TableObjectId, EstimateRowCount)
-                    EXEC(@sql)
-            END TRY
-            BEGIN CATCH
-                INSERT #Counts (TableObjectId, EstimateRowCount) VALUES (@object_id, NULL);
-            END CATCH
-            FETCH NEXT FROM c INTO @object_id, @schema, @table;
-        END
-        CLOSE c;
-        DEALLOCATE c;
-
-        SELECT
-            b.TableObjectId             AS TableObjectId,
-            b.SchemaName                AS SchemaName,
-            b.TableName                 AS TableName,
-            b.TrackColumnsUpdated       AS TrackColumnsUpdated,
-            b.MinValidVersion           AS MinValidVersion,
-            b.CurrentDatabaseVersion    AS CurrentDatabaseVersion,
-            c.EstimateRowCount          AS EstimateRowCount
-        FROM #Base b
-            LEFT JOIN #Counts c ON c.TableObjectId = b.TableObjectId
-        ORDER BY b.SchemaName, b.TableName;
-
-        DROP TABLE #Counts;
-        DROP TABLE #Base;
         """;
 
     public static void PersistsSourceTargetVersionState(
