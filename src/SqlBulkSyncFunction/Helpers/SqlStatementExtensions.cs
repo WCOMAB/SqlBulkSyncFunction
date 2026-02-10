@@ -18,9 +18,12 @@ public static class SqlStatementExtensions
                     SELECT  '{tableName}'                                       AS TableName,
                             CHANGE_TRACKING_CURRENT_VERSION()                   AS CurrentVersion,
                             CHANGE_TRACKING_MIN_VALID_VERSION(
-                                OBJECT_ID('{tableName}')
+                                    ctt.object_id
                             )                                                   AS MinValidVersion,
                             SYSDATETIMEOFFSET()                                 AS Queried
+
+                        FROM sys.change_tracking_tables AS ctt
+                        WHERE ctt.object_id = OBJECT_ID('{tableName}')
                     """;
         }
 
@@ -314,7 +317,7 @@ public static class SqlStatementExtensions
                 );
         }
 
-        var statement = (tableSchema.TargetVersion.CurrentVersion <= 1)
+        var statement = (tableSchema.TargetVersion.CurrentVersion < 0)
             ? tableSchema.GetSourceSelectAllStatement()
             : string.Format(
                 """

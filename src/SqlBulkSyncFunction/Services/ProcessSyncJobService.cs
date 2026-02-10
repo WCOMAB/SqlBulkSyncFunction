@@ -73,7 +73,12 @@ public partial class ProcessSyncJobService(
                             {
                                 SeedTable(targetConn, tableSchema, sourceConn, scope);
                             }
-                            else if (tableSchema.SourceVersion.Equals(tableSchema.TargetVersion))
+                            else if (tableSchema.SourceVersion == null)
+                            {
+                                LogUnknownSourceVersion(schedule, id, area, tableSchema.Scope);
+                                return;
+                            }
+                            else if (tableSchema.SourceVersion.CurrentVersion.Equals(tableSchema.TargetVersion.CurrentVersion))
                             {
                                 LogAlreadyUpToDate(schedule, id, area);
                             }
@@ -97,7 +102,7 @@ public partial class ProcessSyncJobService(
                 }
             );
 
-            if (exceptions.Any())
+            if (exceptions.Count != 0)
             {
                 throw new AggregateException($"{scope} sync failed", exceptions);
             }
@@ -155,6 +160,9 @@ public partial class ProcessSyncJobService(
 
     [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} Already up to date")]
     private partial void LogAlreadyUpToDate(string schedule, string id, string area);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "{Schedule} {Id} {Area} Unknown / failed to fetch source version {Scope}.")]
+    private partial void LogUnknownSourceVersion(string schedule, string id, string area, string scope);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} End {TableSchemaScope}, duration {Elapsed}")]
     private partial void LogEndTableSchemaScopeDuration(string schedule, string id, string area, string tableSchemaScope, TimeSpan elapsed);
