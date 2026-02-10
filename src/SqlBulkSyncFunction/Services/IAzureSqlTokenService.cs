@@ -1,9 +1,8 @@
 using System.Threading.Tasks;
 
-namespace SqlBulkSyncFunction.Services
+namespace SqlBulkSyncFunction.Services;
+
+public interface IAzureSqlTokenService
 {
-    public interface IAzureSqlTokenService
-    {
-        public Task<string> GetAccessToken(string tenantId);
-    }
+    public Task<string> GetAccessToken(string tenantId);
 }
