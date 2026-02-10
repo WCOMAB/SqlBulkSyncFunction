@@ -92,8 +92,7 @@ public static class SqlCommandExtensions
         object scope,
         ILogger logger
         ) => Array.ForEach(
-            new[]
-            {
+            [
                 new
                 {
                     Name = tableSchema.SyncNewOrUpdatedTableName,
@@ -106,7 +105,7 @@ public static class SqlCommandExtensions
                     SelectStatement = tableSchema.SourceDeletedSelectStatement,
                     Description = "deleted"
                 }
-            },
+            ],
             table =>
             {
                 using var sourceCmd = new SqlCommand
