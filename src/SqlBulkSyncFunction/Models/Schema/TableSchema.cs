@@ -3,89 +3,88 @@ using Microsoft.Data.SqlClient;
 using SqlBulkSyncFunction.Helpers;
 using SqlBulkSyncFunction.Models.Job;
 
-namespace SqlBulkSyncFunction.Models.Schema
+namespace SqlBulkSyncFunction.Models.Schema;
+
+public record TableSchema
 {
-    public record TableSchema
+    public string Scope { get; }
+    public string SourceTableName { get; }
+    public string TargetTableName { get; }
+    public Column[] Columns { get; }
+    public string SyncNewOrUpdatedTableName { get; }
+    public string SyncDeletedTableName { get; }
+    public string DropNewOrUpdatedTableStatement { get; }
+    public string DropDeletedTableStatement { get; }
+    public string MergeNewOrUpdateStatement { get; }
+    public string DeleteStatement { get; }
+    public string SourceNewOrUpdatedSelectStatement { get; }
+    public string SourceDeletedSelectStatement { get; }
+    public string SourceSelectAllStatement { get; }
+    public string CreateNewOrUpdatedSyncTableStatement { get; }
+    public string CreateDeletedSyncTableStatement { get; }
+    public string TruncateTargetTableStatement { get; }
+    public string SyncTableExistStatement { get; }
+    public TableVersion SourceVersion { get; }
+    public TableVersion TargetVersion { get; }
+    public int BatchSize { get; }
+    public bool DisableTargetIdentityInsert { get; }
+    private TableSchema(
+        SyncJobTable table,
+        Column[] columns,
+        TableVersion sourceVersion,
+        TableVersion targetVersion,
+        int? batchSize
+        )
     {
-        public string Scope { get; }
-        public string SourceTableName { get; }
-        public string TargetTableName { get; }
-        public Column[] Columns { get; }
-        public string SyncNewOrUpdatedTableName { get; }
-        public string SyncDeletedTableName { get; }
-        public string DropNewOrUpdatedTableStatement { get; }
-        public string DropDeletedTableStatement { get; }
-        public string MergeNewOrUpdateStatement { get; }
-        public string DeleteStatement { get; }
-        public string SourceNewOrUpdatedSelectStatement { get; }
-        public string SourceDeletedSelectStatement { get; }
-        public string SourceSelectAllStatement { get; }
-        public string CreateNewOrUpdatedSyncTableStatement { get; }
-        public string CreateDeletedSyncTableStatement { get; }
-        public string TruncateTargetTableStatement { get; }
-        public string SyncTableExistStatement { get; }
-        public TableVersion SourceVersion { get; }
-        public TableVersion TargetVersion { get; }
-        public int BatchSize { get; }
-        public bool DisableTargetIdentityInsert { get; }
-        private TableSchema(
-            SyncJobTable table,
-            Column[] columns,
-            TableVersion sourceVersion,
-            TableVersion targetVersion,
-            int? batchSize
-            )
-        {
-            var bufferName = table.Target.Replace("[", "").Replace("]", "");
+        var bufferName = table.Target.Replace("[", "").Replace("]", "");
 
-            Scope = string.Concat(
-                table.Source,
-                " to ",
-                table.Target
+        Scope = string.Concat(
+            table.Source,
+            " to ",
+            table.Target
+        );
+
+        SourceTableName = table.Source;
+        TargetTableName = table.Target;
+        DisableTargetIdentityInsert = table.DisableTargetIdentityInsert;
+        SyncNewOrUpdatedTableName = FormattableString.Invariant($"sync.[{bufferName}_{DateTime.UtcNow:yyyyMMdd}_{targetVersion.CurrentVersion:00000000}_NewOrUpdated]");
+        SyncDeletedTableName = FormattableString.Invariant($"sync.[{bufferName}_{DateTime.UtcNow:yyyyMMdd}_{targetVersion.CurrentVersion:00000000}_DeletedTable]");
+        Columns = columns;
+        SourceVersion = sourceVersion;
+        TargetVersion = targetVersion;
+
+        CreateNewOrUpdatedSyncTableStatement = this.GetCreateNewOrUpdatedSyncTableStatement();
+        CreateDeletedSyncTableStatement = this.GetCreateDeletedSyncTableStatement();
+
+        SourceNewOrUpdatedSelectStatement = this.GetNewOrUpdatedAtSourceSelectStatement();
+        SourceSelectAllStatement = this.GetSourceSelectAllStatement();
+        SourceDeletedSelectStatement = this.GetDeletedAtSourceSelectStatement();
+        MergeNewOrUpdateStatement = this.GetNewOrUpdatedMergeStatement(DisableTargetIdentityInsert);
+        DeleteStatement = this.GetDeleteStatement();
+        DropNewOrUpdatedTableStatement = SyncNewOrUpdatedTableName.GetDropStatement();
+        DropDeletedTableStatement = SyncDeletedTableName.GetDropStatement();
+        TruncateTargetTableStatement = this.GetTruncateTargetTableStatement();
+        SyncTableExistStatement = this.GetSyncTableExistStatement();
+        BatchSize = batchSize ?? 1000;
+    }
+
+
+    public static TableSchema LoadSchema(
+        SqlConnection sourceConn,
+        SqlConnection targetConn,
+        SyncJobTable syncTable,
+        int? batchSize,
+        bool globalChangeTracking
+        )
+    {
+        var columns = sourceConn.GetColumns(syncTable.Source);
+        var targetVersion = targetConn.GetTargetVersion(syncTable.Target);
+        return new TableSchema(
+            syncTable,
+            columns,
+            sourceConn.GetSourceVersion(syncTable.Source, globalChangeTracking, columns),
+            targetVersion,
+            batchSize
             );
-
-            SourceTableName = table.Source;
-            TargetTableName = table.Target;
-            DisableTargetIdentityInsert = table.DisableTargetIdentityInsert;
-            SyncNewOrUpdatedTableName = FormattableString.Invariant($"sync.[{bufferName}_{DateTime.UtcNow:yyyyMMdd}_{targetVersion.CurrentVersion:00000000}_NewOrUpdated]");
-            SyncDeletedTableName = FormattableString.Invariant($"sync.[{bufferName}_{DateTime.UtcNow:yyyyMMdd}_{targetVersion.CurrentVersion:00000000}_DeletedTable]");
-            Columns = columns;
-            SourceVersion = sourceVersion;
-            TargetVersion = targetVersion;
-
-            CreateNewOrUpdatedSyncTableStatement = this.GetCreateNewOrUpdatedSyncTableStatement();
-            CreateDeletedSyncTableStatement = this.GetCreateDeletedSyncTableStatement();
-
-            SourceNewOrUpdatedSelectStatement = this.GetNewOrUpdatedAtSourceSelectStatement();
-            SourceSelectAllStatement = this.GetSourceSelectAllStatement();
-            SourceDeletedSelectStatement = this.GetDeletedAtSourceSelectStatement();
-            MergeNewOrUpdateStatement = this.GetNewOrUpdatedMergeStatement(DisableTargetIdentityInsert);
-            DeleteStatement = this.GetDeleteStatement();
-            DropNewOrUpdatedTableStatement = SyncNewOrUpdatedTableName.GetDropStatement();
-            DropDeletedTableStatement = SyncDeletedTableName.GetDropStatement();
-            TruncateTargetTableStatement = this.GetTruncateTargetTableStatement();
-            SyncTableExistStatement = this.GetSyncTableExistStatement();
-            BatchSize = batchSize ?? 1000;
-        }
-
-
-        public static TableSchema LoadSchema(
-            SqlConnection sourceConn,
-            SqlConnection targetConn,
-            SyncJobTable syncTable,
-            int? batchSize,
-            bool globalChangeTracking
-            )
-        {
-            var columns = sourceConn.GetColumns(syncTable.Source);
-            var targetVersion = targetConn.GetTargetVersion(syncTable.Target);
-            return new TableSchema(
-                syncTable,
-                columns,
-                sourceConn.GetSourceVersion(syncTable.Source, globalChangeTracking, columns),
-                targetVersion,
-                batchSize
-                );
-        }
     }
 }

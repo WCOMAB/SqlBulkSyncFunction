@@ -1,10 +1,9 @@
 using System.Threading.Tasks;
 using SqlBulkSyncFunction.Models.Job;
 
-namespace SqlBulkSyncFunction.Services
+namespace SqlBulkSyncFunction.Services;
+
+public interface IProcessSyncJobService
 {
-    public interface IProcessSyncJobService
-    {
-        public Task ProcessSyncJob(SyncJob syncJob, bool globalChangeTracking);
-    }
+    public Task ProcessSyncJob(SyncJob syncJob, bool globalChangeTracking);
 }

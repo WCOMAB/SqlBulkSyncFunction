@@ -5,19 +5,19 @@ using Azure.Identity;
 
 namespace SqlBulkSyncFunction.Services;
 
-public record AzureSqlTokenService(DefaultAzureCredential DefaultAzureCredential) : IAzureSqlTokenService
+public partial class AzureSqlTokenService(DefaultAzureCredential defaultAzureCredential) : IAzureSqlTokenService
 {
     private const string AzureSqlResourceId = "https://database.windows.net/";
-    private static AccessToken? AccessToken = default;
+    private static AccessToken? _accessToken = default;
 
 
     public async Task<string> GetAccessToken(string tenantId)
         => (
-                AccessToken is { } validToken && validToken.ExpiresOn < DateTimeOffset.UtcNow.AddMinutes(5)
+                _accessToken is { } validToken && validToken.ExpiresOn < DateTimeOffset.UtcNow.AddMinutes(5)
                         ? validToken
-                        : (AccessToken = await DefaultAzureCredential.GetTokenAsync(
+                        : (_accessToken = await defaultAzureCredential.GetTokenAsync(
                             new TokenRequestContext(
-                                new[] { AzureSqlResourceId },
+                                [AzureSqlResourceId],
                                 tenantId: string.IsNullOrWhiteSpace(tenantId) ? null : tenantId
                                 )
                             )

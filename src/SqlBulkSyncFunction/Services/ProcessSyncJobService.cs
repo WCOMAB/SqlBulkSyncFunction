@@ -9,138 +9,156 @@ using SqlBulkSyncFunction.Helpers;
 using SqlBulkSyncFunction.Models.Job;
 using SqlBulkSyncFunction.Models.Schema;
 
-namespace SqlBulkSyncFunction.Services
+namespace SqlBulkSyncFunction.Services;
+
+public partial class ProcessSyncJobService(
+    ILogger<ProcessSyncJobService> logger
+    ) : IProcessSyncJobService
 {
-    // ReSharper disable once UnusedMember.Global
-    public record ProcessSyncJobService(ILogger<ProcessSyncJobService> Logger) : IProcessSyncJobService
+    public async Task ProcessSyncJob(SyncJob syncJob, bool globalChangeTracking)
     {
-        public async Task ProcessSyncJob(SyncJob syncJob, bool globalChangeTracking)
+        var (schedule, id, area) = (syncJob.Schedule, syncJob.Id, syncJob.Area);
+        var scope = new { Schedule = schedule, Id = id, Area = area };
+        using (logger.BeginScope("Schedule={Schedule}, Id={Id}, Area={Area}", schedule, id, area))
         {
-            var scope = new { syncJob.Schedule, syncJob.Id, syncJob.Area };
-            using (Logger.BeginScope(scope))
-            {
-                await using SqlConnection
-                    sourceConn = new(syncJob.SourceDbConnection) { AccessToken = syncJob.SourceDbAccessToken },
-                    targetConn = new(syncJob.TargetDbConnection) { AccessToken = syncJob.TargetDbAccessToken };
+            await using SqlConnection
+                sourceConn = new(syncJob.SourceDbConnection) { AccessToken = syncJob.SourceDbAccessToken },
+                targetConn = new(syncJob.TargetDbConnection) { AccessToken = syncJob.TargetDbAccessToken };
 
-                using IDisposable from = Logger.BeginScope($"{sourceConn.DataSource}.{sourceConn.Database}"),
-                    to = Logger.BeginScope($"{targetConn.DataSource}.{targetConn.Database}");
+            using IDisposable
+                from = logger.BeginScope("{DataSource}.{Database}", sourceConn.DataSource, sourceConn.Database),
+                to = logger.BeginScope("{DataSource}.{Database}", targetConn.DataSource, targetConn.Database);
 
-                Logger.LogInformation(
-                    "{Scope} Connecting to source database {DataSource}.{Database}",
-                    scope,
-                    sourceConn.DataSource,
-                    sourceConn.Database
-                );
-                await sourceConn.OpenAsync();
-                Logger.LogInformation("{Scope} Connected {ClientConnectionId}", scope, sourceConn.ClientConnectionId);
+            LogConnectingToSourceDatabase(schedule, id, area, sourceConn.DataSource, sourceConn.Database);
+            await sourceConn.OpenAsync();
+            LogConnected(schedule, id, area, sourceConn.ClientConnectionId);
 
-                Logger.LogInformation(
-                    "{Scope} Connecting to target database {DataSource}.{Database}",
-                    scope,
-                    targetConn.DataSource,
-                    targetConn.Database
-                );
-                await targetConn.OpenAsync();
-                Logger.LogInformation("{Scope} Connected {ClientConnectionId}", scope, targetConn.ClientConnectionId);
+            LogConnectingToTargetDatabase(schedule, id, area, targetConn.DataSource, targetConn.Database);
+            await targetConn.OpenAsync();
+            LogConnected(schedule, id, area, targetConn.ClientConnectionId);
 
-                Logger.LogInformation("{Scope} Ensuring sync schema and table exists...", scope);
-                targetConn.EnsureSyncSchemaAndTableExists(scope, Logger);
-                Logger.LogInformation("{Scope} Ensured sync schema and table exist", scope);
+            LogEnsuringSyncSchemaAndTableExists(schedule, id, area);
+            targetConn.EnsureSyncSchemaAndTableExists(scope, logger);
+            LogEnsuredSyncSchemaAndTableExist(schedule, id, area);
 
-                Logger.LogInformation("{Scope} Fetching table schemas...", scope);
-                var schemaStopWatch = Stopwatch.StartNew();
-                var tableSchemas = (
-                        syncJob.Tables ?? []
-                    )
-                    .Select(
-                        table => TableSchema.LoadSchema(
-                            sourceConn,
-                            targetConn,
-                            table,
-                            syncJob.BatchSize,
-                            globalChangeTracking
-                            )
-                    ).ToArray();
-                schemaStopWatch.Stop();
-                Logger.LogInformation("{Scope} Found {0} tables, duration {1}", scope, tableSchemas.Length, schemaStopWatch.Elapsed);
-                var exceptions = new List<Exception>();
-                Array.ForEach(
-                    tableSchemas,
-                    tableSchema =>
+            LogFetchingTableSchemas(schedule, id, area);
+            var schemaStopWatch = Stopwatch.StartNew();
+            var tableSchemas = (
+                    syncJob.Tables ?? []
+                )
+                .Select(
+                    table => TableSchema.LoadSchema(
+                        sourceConn,
+                        targetConn,
+                        table,
+                        syncJob.BatchSize,
+                        globalChangeTracking
+                        )
+                ).ToArray();
+            schemaStopWatch.Stop();
+            LogFoundTablesDuration(schedule, id, area, tableSchemas.Length, schemaStopWatch.Elapsed);
+            var exceptions = new List<Exception>();
+            Array.ForEach(
+                tableSchemas,
+                tableSchema =>
+                {
+                    var syncStopWatch = Stopwatch.StartNew();
+                    try
                     {
-                        var syncStopWatch = Stopwatch.StartNew();
-                        try
+                        using (logger.BeginScope("{TableSchemaScope}", tableSchema.Scope))
                         {
-                            using (Logger.BeginScope(tableSchema.Scope))
+                            LogBeginTableSchemaScope(schedule, id, area, tableSchema.Scope);
+
+                            if (syncJob.Seed)
                             {
-                                Logger.LogInformation("{Scope} Begin {TableSchemaScope}", scope, tableSchema.Scope);
-
-                                if (syncJob.Seed)
-                                {
-                                    SeedTable(targetConn, tableSchema, sourceConn, scope);
-                                }
-                                else if (tableSchema.SourceVersion.Equals(tableSchema.TargetVersion))
-                                {
-                                    Logger.LogInformation("{Scope} Already up to date", scope);
-                                }
-                                else
-                                {
-                                    SyncTable(targetConn, tableSchema, sourceConn, scope);
-                                }
-
-                                syncStopWatch.Stop();
-                                Logger.LogInformation("{Scope} End {TableSchemaScope}, duration {Elapsed}", scope, tableSchema.Scope, syncStopWatch.Elapsed);
-                                targetConn.PersistsSourceTargetVersionState(tableSchema);
+                                SeedTable(targetConn, tableSchema, sourceConn, scope);
                             }
-                        }
-                        catch (Exception ex)
-                        {
-                            syncStopWatch.Stop();
-                            Logger.LogError(
-                                ex,
-                                "{Scope} Exception {TableSchemaScope}, duration {Elapsed}, exception: {Message}",
-                                scope,
-                                tableSchema.Scope,
-                                syncStopWatch.Elapsed,
-                                ex.Message
-                                );
+                            else if (tableSchema.SourceVersion.Equals(tableSchema.TargetVersion))
+                            {
+                                LogAlreadyUpToDate(schedule, id, area);
+                            }
+                            else
+                            {
+                                SyncTable(targetConn, tableSchema, sourceConn, scope);
+                            }
 
-                            exceptions.Add(ex);
+                            syncStopWatch.Stop();
+                            LogEndTableSchemaScopeDuration(schedule, id, area, tableSchema.Scope, syncStopWatch.Elapsed);
+                            targetConn.PersistsSourceTargetVersionState(tableSchema);
                         }
                     }
-                );
+                    catch (Exception ex)
+                    {
+                        syncStopWatch.Stop();
+                        LogSyncException(ex, schedule, id, area, tableSchema.Scope, syncStopWatch.Elapsed, ex.Message);
 
-                if (exceptions.Any())
-                {
-                    throw new AggregateException($"{scope} sync failed", exceptions);
+                        exceptions.Add(ex);
+                    }
                 }
-            }
-        }
+            );
 
-        private void SeedTable(SqlConnection targetConn, TableSchema tableSchema, SqlConnection sourceConn, object scope)
-        {
-            targetConn.TruncateTargetTable(tableSchema, scope, Logger);
-            sourceConn.BulkCopyDataDirect(targetConn, tableSchema, scope, Logger);
-        }
-
-        private void SyncTable(SqlConnection targetConn, TableSchema tableSchema, SqlConnection sourceConn, object scope)
-        {
-            if (targetConn.SyncTablesExist(tableSchema))
+            if (exceptions.Any())
             {
-                throw new Exception($"{scope} Aborting! Sync tables already exists ({tableSchema.SyncNewOrUpdatedTableName}, {tableSchema.SyncDeletedTableName})");
-            }
-            try
-            {
-                targetConn.CreateSyncTables(tableSchema, scope, Logger);
-                sourceConn.BulkCopyData(targetConn, tableSchema, scope, Logger);
-                targetConn.DeleteData(tableSchema, scope, Logger);
-                targetConn.MergeData(tableSchema, scope, Logger);
-            }
-            finally
-            {
-                targetConn.DropSyncTables(tableSchema, scope, Logger);
+                throw new AggregateException($"{scope} sync failed", exceptions);
             }
         }
     }
+
+    private void SeedTable(SqlConnection targetConn, TableSchema tableSchema, SqlConnection sourceConn, object scope)
+    {
+        targetConn.TruncateTargetTable(tableSchema, scope, logger);
+        sourceConn.BulkCopyDataDirect(targetConn, tableSchema, scope, logger);
+    }
+
+    private void SyncTable(SqlConnection targetConn, TableSchema tableSchema, SqlConnection sourceConn, object scope)
+    {
+        if (targetConn.SyncTablesExist(tableSchema))
+        {
+            throw new Exception($"{scope} Aborting! Sync tables already exists ({tableSchema.SyncNewOrUpdatedTableName}, {tableSchema.SyncDeletedTableName})");
+        }
+        try
+        {
+            targetConn.CreateSyncTables(tableSchema, scope, logger);
+            sourceConn.BulkCopyData(targetConn, tableSchema, scope, logger);
+            targetConn.DeleteData(tableSchema, scope, logger);
+            targetConn.MergeData(tableSchema, scope, logger);
+        }
+        finally
+        {
+            targetConn.DropSyncTables(tableSchema, scope, logger);
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} Connecting to source database {DataSource}.{Database}")]
+    private partial void LogConnectingToSourceDatabase(string schedule, string id, string area, string dataSource, string database);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} Connected {ClientConnectionId}")]
+    private partial void LogConnected(string schedule, string id, string area, Guid clientConnectionId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} Connecting to target database {DataSource}.{Database}")]
+    private partial void LogConnectingToTargetDatabase(string schedule, string id, string area, string dataSource, string database);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} Ensuring sync schema and table exists...")]
+    private partial void LogEnsuringSyncSchemaAndTableExists(string schedule, string id, string area);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} Ensured sync schema and table exist")]
+    private partial void LogEnsuredSyncSchemaAndTableExist(string schedule, string id, string area);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} Fetching table schemas...")]
+    private partial void LogFetchingTableSchemas(string schedule, string id, string area);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} Found {TableCount} tables, duration {Elapsed}")]
+    private partial void LogFoundTablesDuration(string schedule, string id, string area, int tableCount, TimeSpan elapsed);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} Begin {TableSchemaScope}")]
+    private partial void LogBeginTableSchemaScope(string schedule, string id, string area, string tableSchemaScope);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} Already up to date")]
+    private partial void LogAlreadyUpToDate(string schedule, string id, string area);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} End {TableSchemaScope}, duration {Elapsed}")]
+    private partial void LogEndTableSchemaScopeDuration(string schedule, string id, string area, string tableSchemaScope, TimeSpan elapsed);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "{Schedule} {Id} {Area} Exception {TableSchemaScope}, duration {Elapsed}, exception: {Message}")]
+    private partial void LogSyncException(Exception ex, string schedule, string id, string area, string tableSchemaScope, TimeSpan elapsed, string message);
 }
