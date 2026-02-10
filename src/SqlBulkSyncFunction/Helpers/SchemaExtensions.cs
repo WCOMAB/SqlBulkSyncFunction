@@ -9,6 +9,56 @@ namespace SqlBulkSyncFunction.Helpers;
 
 public static class SchemaExtensions
 {
+    /// <summary>
+    /// Query to retrieve database-level info including change tracking and server metadata.
+    /// </summary>
+    public const string DbInfoQuery =
+        """
+        SELECT @@SERVERNAME                                         AS ServerName,
+               DB_NAME(db.DatabaseId)                               AS DatabaseName,
+               CAST(ISNULL(ct.IsChangeTrackingDatabase, 0) as bit)  AS IsChangeTrackingDatabase,
+               CAST(ISNULL(IsAautoCleanupOn, 0) as bit)             AS IsAautoCleanupOn,
+               RetentionPeriod                                      AS RetentionPeriod,
+               RetentionPeriodUnit                                  AS RetentionPeriodUnit,
+               @@VERSION                                            AS ServerVersion
+        FROM (
+                SELECT  DB_ID()                         AS DatabaseId   -- current DB
+            ) db
+            OUTER APPLY (
+                SELECT  CAST(1 as bit)                  AS IsChangeTrackingDatabase,
+                        is_auto_cleanup_on              AS IsAautoCleanupOn,
+                        retention_period                AS RetentionPeriod,
+                        retention_period_units_desc     AS RetentionPeriodUnit
+                FROM sys.change_tracking_databases
+                WHERE database_id = db.DatabaseId
+            ) ct
+        """;
+
+    /// <summary>
+    /// Query to retrieve change tracking metadata for all tracked tables in the database.
+    /// </summary>
+    public const string SourceTableChangeTrackingInfoQuery =
+        """
+        SELECT
+            t.object_id                                     AS TableObjectId,
+            s.name                                          AS SchemaName,
+            t.name                                          AS TableName,
+            CAST(ctt.is_track_columns_updated_on as bit)    AS TrackColumnsUpdated,
+            CHANGE_TRACKING_MIN_VALID_VERSION(t.object_id)  AS MinValidVersion,
+            CHANGE_TRACKING_CURRENT_VERSION()               AS CurrentDatabaseVersion,
+            rc.EstimateRowCount                             AS EstimateRowCount
+        FROM sys.change_tracking_tables AS ctt
+            JOIN sys.tables  AS t ON t.object_id = ctt.object_id
+            JOIN sys.schemas AS s ON s.schema_id = t.schema_id
+            OUTER APPLY (
+                SELECT SUM(p.row_count) AS EstimateRowCount
+                FROM sys.dm_db_partition_stats AS p
+                WHERE p.object_id = t.object_id
+                  AND p.index_id IN (0, 1)
+            ) rc
+        ORDER BY s.name, t.name;
+        """;
+
     public static void PersistsSourceTargetVersionState(
         this SqlConnection conn,
         TableSchema tableSchema

@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
-using System.Net;
 using System.Threading.Tasks;
+using Dapper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
@@ -9,7 +9,6 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SqlBulkSyncFunction.Helpers;
-using SqlBulkSyncFunction.Models;
 using SqlBulkSyncFunction.Models.Job;
 using SqlBulkSyncFunction.Models.Schema;
 using SqlBulkSyncFunction.Services;
@@ -29,9 +28,11 @@ public partial class GetSyncJobConfig(
             AuthorizationLevel.Function,
             "get",
             Route ="config"
-        )] HttpRequest reg
+        )] HttpRequest req
        )
     {
+        ArgumentNullException.ThrowIfNull(req);
+
         var idS = syncJobsConfig.Value.Jobs.Keys;
         return new OkObjectResult(idS);
     }
@@ -42,10 +43,12 @@ public partial class GetSyncJobConfig(
             AuthorizationLevel.Function,
             "get",
             Route ="config/{id}"
-        )] HttpRequest reg,
+        )] HttpRequest req,
        string id
        )
     {
+        ArgumentNullException.ThrowIfNull(req);
+
         if (
             !string.IsNullOrWhiteSpace(id) &&
             syncJobsConfig.Value.Jobs.TryGetValue(id, out var syncJobConfig)
@@ -62,11 +65,13 @@ public partial class GetSyncJobConfig(
             AuthorizationLevel.Function,
             "get",
             Route ="config/{id}/{area}"
-        )] HttpRequest reg,
+        )] HttpRequest req,
        string id,
        string area
        )
     {
+        ArgumentNullException.ThrowIfNull(req);
+
         if (!string.IsNullOrWhiteSpace(area) &&
             !string.IsNullOrWhiteSpace(id) &&
             syncJobsConfig.Value.Jobs.TryGetValue(id, out var jobConfig) &&
@@ -100,11 +105,13 @@ public partial class GetSyncJobConfig(
             AuthorizationLevel.Function,
             "get",
             Route ="config/{id}/{area}/schema"
-        )] HttpRequest reg,
+        )] HttpRequest req,
       string id,
       string area
       )
     {
+        ArgumentNullException.ThrowIfNull(req);
+
         if (!string.IsNullOrWhiteSpace(area) &&
             !string.IsNullOrWhiteSpace(id) &&
             syncJobsConfig.Value.Jobs.TryGetValue(id, out var jobConfig) &&
@@ -129,6 +136,15 @@ public partial class GetSyncJobConfig(
             await sourceConn.OpenAsync();
             await targetConn.OpenAsync();
 
+            DbInfo
+                sourceDbInfo = await sourceConn.QueryFirstAsync<DbInfo>(SchemaExtensions.DbInfoQuery),
+                targetDbInfo = await targetConn.QueryFirstAsync<DbInfo>(SchemaExtensions.DbInfoQuery);
+
+            SourceTableChangeTrackingInfo[]
+                sourceTableChangeTrackingInfos = [.. await sourceConn.QueryAsync<SourceTableChangeTrackingInfo>(SchemaExtensions.SourceTableChangeTrackingInfoQuery)];
+
+
+
             var tableSchemas = (
                     syncJob.Tables ?? []
                 )
@@ -151,7 +167,15 @@ public partial class GetSyncJobConfig(
                 })
                 .ToArray();
 
-            return new OkObjectResult(tableSchemas);
+            return new OkObjectResult(
+                new
+                {
+                    sourceDbInfo,
+                    targetDbInfo,
+                    tableSchemas,
+                    sourceTableChangeTrackingInfos
+                }
+                );
         }
         return new NotFoundResult();
     }
