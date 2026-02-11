@@ -118,7 +118,7 @@ public static class SqlStatementExtensions
                     : string.Empty
                 ),
             (
-                (tableSchema.TargetVersion.CurrentVersion <= 1)
+                (tableSchema.TargetVersion.CurrentVersion < 0)
                     ? """
 
                     WHEN NOT MATCHED BY SOURCE
@@ -250,7 +250,7 @@ public static class SqlStatementExtensions
             .Where(column => column.IsPrimary)
             .ToArray();
 
-        if (tableSchema.TargetVersion.CurrentVersion <= 1)
+        if (tableSchema.TargetVersion.CurrentVersion < 0)
         {
             return string.Format(
                 """
