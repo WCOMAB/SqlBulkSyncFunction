@@ -23,7 +23,7 @@ public partial class GetSyncJobConfig(
 {
 
     [Function(nameof(GetSyncJobConfig) + nameof(ListIds))]
-    public async Task<IActionResult> ListIds(
+    public IActionResult ListIds(
        [HttpTrigger(
             AuthorizationLevel.Function,
             "get",
@@ -33,12 +33,13 @@ public partial class GetSyncJobConfig(
     {
         ArgumentNullException.ThrowIfNull(req);
 
-        var idS = syncJobsConfig.Value.Jobs.Keys;
-        return new OkObjectResult(idS);
+        return syncJobsConfig?.Value?.Jobs?.Keys is { } ids
+                ? new OkObjectResult(ids)
+                : new NoContentResult();
     }
 
     [Function(nameof(GetSyncJobConfig) + nameof(ListAreas))]
-    public async Task<IActionResult> ListAreas(
+    public IActionResult ListAreas(
        [HttpTrigger(
             AuthorizationLevel.Function,
             "get",
@@ -51,8 +52,9 @@ public partial class GetSyncJobConfig(
 
         if (
             !string.IsNullOrWhiteSpace(id) &&
-            syncJobsConfig.Value.Jobs.TryGetValue(id, out var syncJobConfig)
-            && syncJobConfig?.Area is { Length: > 0 } area)
+            syncJobsConfig?.Value?.Jobs?.TryGetValue(id, out var syncJobConfig) == true &&
+            syncJobConfig?.Area is { Length: > 0 } area
+            )
         {
             return new OkObjectResult(new string[] { area });
         }
@@ -60,7 +62,7 @@ public partial class GetSyncJobConfig(
     }
 
     [Function(nameof(GetSyncJobConfig) + nameof(GetJobConfig))]
-    public async Task<IActionResult> GetJobConfig(
+    public IActionResult GetJobConfig(
        [HttpTrigger(
             AuthorizationLevel.Function,
             "get",
@@ -74,7 +76,7 @@ public partial class GetSyncJobConfig(
 
         if (!string.IsNullOrWhiteSpace(area) &&
             !string.IsNullOrWhiteSpace(id) &&
-            syncJobsConfig.Value.Jobs.TryGetValue(id, out var jobConfig) &&
+            syncJobsConfig?.Value?.Jobs?.TryGetValue(id, out var jobConfig) == true &&
             StringComparer.OrdinalIgnoreCase.Equals(area, jobConfig?.Area))
         {
             var tables = jobConfig.Tables.ToDictionary(
@@ -114,7 +116,7 @@ public partial class GetSyncJobConfig(
 
         if (!string.IsNullOrWhiteSpace(area) &&
             !string.IsNullOrWhiteSpace(id) &&
-            syncJobsConfig.Value.Jobs.TryGetValue(id, out var jobConfig) &&
+            syncJobsConfig?.Value?.Jobs?.TryGetValue(id, out var jobConfig) == true &&
             StringComparer.OrdinalIgnoreCase.Equals(area, jobConfig?.Area))
         {
             var syncJob = jobConfig.ToSyncJob(
