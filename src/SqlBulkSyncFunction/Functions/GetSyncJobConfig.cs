@@ -145,7 +145,7 @@ public partial class GetSyncJobConfig(
             SourceTableChangeTrackingInfo[]
                 sourceTableChangeTrackingInfos = [.. await sourceConn.QueryAsync<SourceTableChangeTrackingInfo>(SchemaExtensions.SourceTableChangeTrackingInfoQuery)];
 
-
+            targetConn.EnsureSyncSchemaAndTableExists($"config/{id}/{area}/schema", logger);
 
             var tableSchemas = (
                     syncJob.Tables ?? []
