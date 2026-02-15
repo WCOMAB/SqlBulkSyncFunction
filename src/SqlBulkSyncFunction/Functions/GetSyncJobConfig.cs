@@ -22,8 +22,8 @@ public partial class GetSyncJobConfig(
     )
 {
 
-    [Function(nameof(GetSyncJobConfig) + nameof(ListIds))]
-    public IActionResult ListIds(
+    [Function(nameof(GetSyncJobConfig) + nameof(ListAreas))]
+    public IActionResult ListAreas(
        [HttpTrigger(
             AuthorizationLevel.Function,
             "get",
@@ -33,32 +33,35 @@ public partial class GetSyncJobConfig(
     {
         ArgumentNullException.ThrowIfNull(req);
 
-        return syncJobsConfig?.Value?.Jobs?.Keys is { } ids
-                ? new OkObjectResult(ids)
+        return syncJobsConfig?.Value?.Jobs?.Values
+            ?.Where(job => job.Area is { Length: > 0 })
+            .Select(job => job.Area)
+            .Distinct()
+            .ToArray() is { Length: >0 } areas 
+                ? new OkObjectResult(areas)
                 : new NoContentResult();
     }
 
-    [Function(nameof(GetSyncJobConfig) + nameof(ListAreas))]
-    public IActionResult ListAreas(
+    [Function(nameof(GetSyncJobConfig) + nameof(ListIds))]
+    public IActionResult ListIds(
        [HttpTrigger(
             AuthorizationLevel.Function,
             "get",
-            Route ="config/{id}"
+            Route ="config/{area}"
         )] HttpRequest req,
-       string id
+       string area
        )
     {
         ArgumentNullException.ThrowIfNull(req);
 
-        if (
-            !string.IsNullOrWhiteSpace(id) &&
-            syncJobsConfig?.Value?.Jobs?.TryGetValue(id, out var syncJobConfig) == true &&
-            syncJobConfig?.Area is { Length: > 0 } area
-            )
-        {
-            return new OkObjectResult(new string[] { area });
-        }
-        return new NotFoundResult();
+        return
+            !string.IsNullOrWhiteSpace(area) &&
+            syncJobsConfig?.Value?.Jobs
+                ?.Where(job => job.Value.Area == area)
+                .Select(job => job.Key)
+                .ToArray() is { Length: >0 } ids 
+                ? new OkObjectResult(ids)
+                : new NoContentResult();
     }
 
     [Function(nameof(GetSyncJobConfig) + nameof(GetJobConfig))]
@@ -66,10 +69,10 @@ public partial class GetSyncJobConfig(
        [HttpTrigger(
             AuthorizationLevel.Function,
             "get",
-            Route ="config/{id}/{area}"
+            Route ="config/{area}/{id}"
         )] HttpRequest req,
-       string id,
-       string area
+        string area,
+       string id
        )
     {
         ArgumentNullException.ThrowIfNull(req);
@@ -106,10 +109,10 @@ public partial class GetSyncJobConfig(
       [HttpTrigger(
             AuthorizationLevel.Function,
             "get",
-            Route ="config/{id}/{area}/schema"
+            Route ="config/{area}/{id}/schema"
         )] HttpRequest req,
-      string id,
-      string area
+      string area,
+      string id
       )
     {
         ArgumentNullException.ThrowIfNull(req);
