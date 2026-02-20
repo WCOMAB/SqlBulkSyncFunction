@@ -82,14 +82,14 @@ public partial class GetSyncJobConfig(
             syncJobsConfig?.Value?.Jobs?.TryGetValue(id, out var jobConfig) == true &&
             StringComparer.OrdinalIgnoreCase.Equals(area, jobConfig?.Area))
         {
-            var tables = jobConfig.Tables.ToDictionary(
+            var tables = jobConfig.Tables?.ToDictionary(
                 key => key.Key,
                 value => new SyncJobConfigTableDto(
                         Source: value.Value,
-                        Target: jobConfig.TargetTables.TryGetValue(value.Key, out var target) && !string.IsNullOrWhiteSpace(target) ? target : value.Value,
+                        Target: jobConfig.TargetTables?.TryGetValue(value.Key, out var target) == true && !string.IsNullOrWhiteSpace(target) ? target : value.Value,
                         DisableTargetIdentityInsert: jobConfig.DisableTargetIdentityInsertTables.TryGetValue(value.Key, out var disableTargetIdentityInsert) && disableTargetIdentityInsert
                     )
-                );
+                ) ?? [];
             return new OkObjectResult(
                 new SyncJobConfigResponse(
                     Id: id,
