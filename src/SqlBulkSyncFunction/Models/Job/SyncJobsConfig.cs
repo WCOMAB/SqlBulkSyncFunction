@@ -10,15 +10,15 @@ public record SyncJobsConfig
 
     public Dictionary<string, SyncJobConfig> Jobs { get; init; }
 
-    public Lazy<ILookup<string, (string Key, SyncJobConfig Job)>> ScheduledJobs { get; }
+    public Lazy<ILookup<string, (string Key, KeyValuePair<string, SyncJobConfig> Job)>> ScheduledJobs { get; }
     private static Dictionary<string, SyncJobConfig> Empty { get; } = [];
 
-    private ILookup<string, (string Key, SyncJobConfig Job)> GetScheduledJobs()
+    private ILookup<string, (string Key, KeyValuePair<string, SyncJobConfig> Job)> GetScheduledJobs()
         => (
             from job in Jobs ?? Empty
             where !job.Value.Manual.HasValue || job.Value.Manual == false
             from schedule in GetJobSchedules(job)
-            select (Key: schedule, job.Value)
+            select (Key: schedule, job)
         ).ToLookup(
             key => key.Key,
             value => value,
@@ -36,5 +36,5 @@ public record SyncJobsConfig
                 .Where(value => value.Value)
                 .Select(key => key.Key);
 
-    public SyncJobsConfig() => ScheduledJobs = new Lazy<ILookup<string, (string Key, SyncJobConfig Job)>>(GetScheduledJobs);
+    public SyncJobsConfig() => ScheduledJobs = new Lazy<ILookup<string, (string Key, KeyValuePair<string, SyncJobConfig> Job)>>(GetScheduledJobs);
 }

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Concurrent;
 using System.Linq;
+using Google.Protobuf.WellKnownTypes;
+using SqlBulkSyncFunction.Models;
 using SqlBulkSyncFunction.Models.Job;
 
 namespace SqlBulkSyncFunction.Helpers;
@@ -9,12 +11,15 @@ public static class SyncJobConfigExtensions
 {
     public static SyncJob ToSyncJob(
         this SyncJobConfig job,
+        string scheduleCorrelationId,
         string id,
         string schedule,
         ConcurrentDictionary<string, string> tokenCache,
+        DateTimeOffset timestamp,
         DateTimeOffset expires,
         bool seed
     ) => new(
+                scheduleCorrelationId,
                 id,
                 schedule,
                 job.Area,
@@ -24,6 +29,7 @@ public static class SyncJobConfigExtensions
                 TargetDbAccessToken: TryGetToken(job.Target, tokenCache),
                 Tables: job.ToSyncJobTables(),
                 BatchSize: job.BatchSize,
+                Timestamp: timestamp,
                 Expires: expires,
                 Seed: seed
             );
@@ -58,4 +64,15 @@ public static class SyncJobConfigExtensions
     private static string TryGetToken(SyncJobConfigDataSource dataSource, ConcurrentDictionary<string, string> tokenCache) => dataSource.ManagedIdentity && tokenCache.TryGetValue(dataSource.TenantId ?? string.Empty, out var sourceToken)
             ? sourceToken
             : null;
+
+    public static LogSyncJob[] ToLogSyncJobs(this SyncJob[] syncJobs)
+        => [.. syncJobs.Select(ToLogSyncJob)];
+
+    public static  LogSyncJob ToLogSyncJob(this SyncJob syncJob)
+        => new(
+        syncJob.CorrelationId,
+        syncJob.Id,
+        syncJob.Area,
+        syncJob.Seed
+    );
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
@@ -15,79 +16,121 @@ namespace SqlBulkSyncFunction.Functions;
 public partial class ProcessGlobalChangeTrackingSchedule(
     ILogger<ProcessGlobalChangeTrackingSchedule> logger,
     IOptions<SyncJobsConfig> syncJobsConfig,
-    ITokenCacheService tokenCacheService
+    ITokenCacheService tokenCacheService,
+    IProcessSyncJobService processSyncJobService,
+    SyncProgressService syncProgressService
     )
 {
     private const string FunctionName = nameof(ProcessGlobalChangeTrackingSchedule);
 
     [Function(FunctionName + nameof(Custom))]
-    public Task<ProcessGlobalChangeTrackingResult> Custom(
+    public Task Custom(
         [TimerTrigger("%ProcessGlobalChangeTrackingSchedule%")]
-        TimerInfo timerInfo
-    ) => ProcessSchedule(timerInfo);
+        TimerInfo timerInfo,
+        CancellationToken cancellationToken
+    ) => ProcessSchedule(timerInfo, cancellationToken);
 
     [Function(FunctionName + nameof(Midnight))]
-    public Task<ProcessGlobalChangeTrackingResult> Midnight(
-        [TimerTrigger("0 0 0 * * *")] TimerInfo timerInfo
-    ) => ProcessSchedule(timerInfo);
+    public Task Midnight(
+        [TimerTrigger("0 0 0 * * *")] TimerInfo timerInfo,
+        CancellationToken cancellationToken
+    ) => ProcessSchedule(timerInfo, cancellationToken);
 
     [Function(FunctionName + nameof(Noon))]
-    public Task<ProcessGlobalChangeTrackingResult> Noon(
-        [TimerTrigger("0 0 12 * * *")] TimerInfo timerInfo
-    ) => ProcessSchedule(timerInfo);
+    public Task Noon(
+        [TimerTrigger("0 0 12 * * *")] TimerInfo timerInfo,
+        CancellationToken cancellationToken
+    ) => ProcessSchedule(timerInfo, cancellationToken);
 
     [Function(FunctionName + nameof(EveryFiveMinutes))]
-    public Task<ProcessGlobalChangeTrackingResult> EveryFiveMinutes(
-        [TimerTrigger("5 */5 * * * *")] TimerInfo timerInfo
-    ) => ProcessSchedule(timerInfo);
+    public Task EveryFiveMinutes(
+        [TimerTrigger("5 */5 * * * *")] TimerInfo timerInfo,
+        CancellationToken cancellationToken
+    ) => ProcessSchedule(timerInfo, cancellationToken);
 
     [Function(FunctionName + nameof(EveryHour))]
-    public Task<ProcessGlobalChangeTrackingResult> EveryHour(
-        [TimerTrigger("10 0 * * * *")] TimerInfo timerInfo
-    ) => ProcessSchedule(timerInfo);
+    public Task EveryHour(
+        [TimerTrigger("10 0 * * * *")] TimerInfo timerInfo,
+        CancellationToken cancellationToken
+    ) => ProcessSchedule(timerInfo, cancellationToken);
 
 
-    private async Task<ProcessGlobalChangeTrackingResult> ProcessSchedule(
+    private async Task ProcessSchedule(
         TimerInfo timerInfo,
+        CancellationToken cancellationToken,
         [CallerMemberName]
-        string config = null
+        string scheduleName = null
         )
     {
-        using (logger.BeginScope(config))
+        using (logger.BeginScope(scheduleName))
         {
+            LogSchedule logSchedule = new(
+                        scheduleName,
+                        DateTimeOffset.UtcNow,
+                        DateTimeOffset.UtcNow.AddMinutes(4),
+                        timerInfo.IsPastDue,
+                        timerInfo?.ScheduleStatus?.Last,
+                        timerInfo?.ScheduleStatus?.Next,
+                        timerInfo?.ScheduleStatus?.LastUpdated
+                        );
+
             try
             {
-                if (timerInfo.IsPastDue && config == nameof(EveryFiveMinutes))
+                if (timerInfo.IsPastDue && scheduleName == nameof(EveryFiveMinutes))
                 {
-                    LogIsPastDueSkipping(config, timerInfo.IsPastDue);
-                    return ProcessGlobalChangeTrackingResult.Empty;
+                    LogIsPastDueSkipping(scheduleName, timerInfo.IsPastDue);
+                    return;
                 }
 
-                var expires = DateTimeOffset.UtcNow.AddMinutes(4);
                 var values = syncJobsConfig?.Value?.Jobs?.Values;
 
                 if (values == null || values.Count == 0)
                 {
-                    LogNoJobsConfiguredSkipping(config);
-                    return ProcessGlobalChangeTrackingResult.Empty;
+                    LogNoJobsConfiguredSkipping(scheduleName);
+                    return;
                 }
 
                 var tokenCache = await tokenCacheService.GetTokenCache(values);
 
-                var syncJobs = syncJobsConfig
-                    .Value
-                    .ScheduledJobs.Value[config]
-                    .Select(job => job.Job.ToSyncJob(job.Key, config, tokenCache, expires, false))
-                    .ToArray();
+                SyncJob[] syncJobs = [
+                                        ..
+                                        syncJobsConfig
+                                            .Value
+                                            .ScheduledJobs.Value[scheduleName]
+                                            .Select(job => job.Job.Value.ToSyncJob(logSchedule.CorrelationId, job.Job.Key, scheduleName, tokenCache, logSchedule.Timestamp, logSchedule.Expires, false))
+                                    ];
 
-                LogFoundJobsForSchedule(config, syncJobs.Length);
+                LogFoundJobsForSchedule(scheduleName, syncJobs.Length);
 
-                return new ProcessGlobalChangeTrackingResult(syncJobs);
+
+                await syncProgressService.Report(
+                    logSchedule with
+                    {
+                        SyncJobs = syncJobs.ToLogSyncJobs()
+                    },
+                    cancellationToken
+                );
+
+                foreach (var syncJob in syncJobs)
+                {
+                    var createdProgress = new SyncJobProgress(
+                        Area: syncJob.Area,
+                        ConfigurationId: syncJob.Id,
+                        Schedule: syncJob.Schedule,
+                        ScheduleCorrelationId: syncJob.ScheduleCorrelationId,
+                        SyncJobCorrelationId: syncJob.CorrelationId,
+                        State: SyncJobProgressState.Created
+                    );
+
+                    await syncProgressService.Report(createdProgress, cancellationToken);
+
+                    await processSyncJobService.EnqueueSyncJob(syncJob, cancellationToken);
+                }
             }
             catch (Exception ex)
             {
-                LogFailedToProcess(ex, config);
-                return ProcessGlobalChangeTrackingResult.Empty;
+                LogFailedToProcess(ex, scheduleName);
+                return;
             }
         }
     }
