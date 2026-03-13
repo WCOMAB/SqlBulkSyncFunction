@@ -3,12 +3,16 @@
   "functionTimeout": "01:00:00",
   "logging": {
     "logLevel": {
-        "default": "Warning",
-        "Host.Results": "Warning",
-        "Function": "Warning",
-        "Host.Aggregator": "Warning",
-        "Azure.Core": "Error",
-        "Azure": "Error"
+      "default": "Warning",
+      "Host.Results": "Warning",
+      "Function": "Warning",
+      "Host.Aggregator": "Warning",
+      "Azure.Core": "Error",
+      "Azure.Storage": "Warning",
+      "Azure.Storage.Queues": "Warning",
+      "Azure.Storage.Blob": "Warning",
+      "Azure": "Error",
+      "System.Net.Http.HttpClient": "Warning"
     },
     "applicationInsights": {
       "samplingSettings": {

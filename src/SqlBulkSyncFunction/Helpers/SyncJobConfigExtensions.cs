@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
-using Google.Protobuf.WellKnownTypes;
 using SqlBulkSyncFunction.Models;
 using SqlBulkSyncFunction.Models.Job;
 
@@ -48,6 +48,12 @@ public static class SyncJobConfigExtensions
             StringComparer.OrdinalIgnoreCase
         );
 
+        var disableConstraintCheckTables = job.DisableConstraintCheckTables?.ToLookup(
+            key => key.Key,
+            value => value.Value,
+            StringComparer.OrdinalIgnoreCase
+        );
+
         return [.. job.Tables.Select(
             sourceTable => new SyncJobTable(
                 sourceTable.Value,
@@ -56,10 +62,20 @@ public static class SyncJobConfigExtensions
                     { Length: > 0 } overrideTargetTable => overrideTargetTable,
                     _ => sourceTable.Value
                 },
-                disableTargetIdentityInsertTables?[sourceTable.Key].FirstOrDefault() ?? false
+                disableTargetIdentityInsertTables.GetValueOrDefault(sourceTable.Key),
+                disableConstraintCheckTables.GetValueOrDefault(sourceTable.Key)
             )
         )];
     }
+
+    private static bool GetValueOrDefault(this ILookup<string, bool> lookup, string key, bool defaultValue = false)
+        => lookup?[key].FirstOrDefault() ?? defaultValue;
+
+    /// <summary>
+    /// Gets the boolean value for the specified key, returning false if key doesn't exist or value is false.
+    /// </summary>
+    public static bool GetValueOrDefault(this Dictionary<string, bool> dictionary, string key)
+        => dictionary?.TryGetValue(key, out var value) == true && value;
 
     private static string TryGetToken(SyncJobConfigDataSource dataSource, ConcurrentDictionary<string, string> tokenCache) => dataSource.ManagedIdentity && tokenCache.TryGetValue(dataSource.TenantId ?? string.Empty, out var sourceToken)
             ? sourceToken

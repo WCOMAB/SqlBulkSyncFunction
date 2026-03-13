@@ -55,11 +55,12 @@ public static class SqlStatementExtensions
             END
             """;
 
-    public static string GetNewOrUpdatedMergeStatement(this TableSchema tableSchema, bool disableTargetIdentityInsert)
+    public static string GetNewOrUpdatedMergeStatement(this TableSchema tableSchema, bool disableTargetIdentityInsert, bool disableConstraintCheck)
     {
         var identityInsert = !disableTargetIdentityInsert && tableSchema.Columns.Any(column => column.IsIdentity);
         var statement = string.Format(
             """
+            {9}
             {6};
             MERGE {0} AS target
             USING {1} AS source
@@ -75,6 +76,7 @@ public static class SqlStatementExtensions
                     SET {5};
             SELECT @@ROWCOUNT AS [RowCount];
             {7}
+            {10}
             """,
             tableSchema.TargetTableName,
             tableSchema.SyncNewOrUpdatedTableName,
@@ -124,6 +126,16 @@ public static class SqlStatementExtensions
                     WHEN NOT MATCHED BY SOURCE
                         THEN DELETE
                     """
+                    : string.Empty
+                ),
+            (
+                disableConstraintCheck
+                    ? $"ALTER TABLE {tableSchema.TargetTableName} NOCHECK CONSTRAINT ALL;"
+                    : string.Empty
+                ),
+            (
+                disableConstraintCheck
+                    ? $"ALTER TABLE {tableSchema.TargetTableName} CHECK CONSTRAINT ALL;"
                     : string.Empty
                 )
             );

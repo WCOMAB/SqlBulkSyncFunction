@@ -87,7 +87,8 @@ public partial class GetSyncJobConfig(
                 value => new SyncJobConfigTableDto(
                         Source: value.Value,
                         Target: jobConfig.TargetTables?.TryGetValue(value.Key, out var target) == true && !string.IsNullOrWhiteSpace(target) ? target : value.Value,
-                        DisableTargetIdentityInsert: jobConfig.DisableTargetIdentityInsertTables.TryGetValue(value.Key, out var disableTargetIdentityInsert) && disableTargetIdentityInsert
+                        DisableTargetIdentityInsert: jobConfig.DisableTargetIdentityInsertTables.GetValueOrDefault(value.Key),
+                        DisableConstraintCheck: jobConfig.DisableConstraintCheckTables.GetValueOrDefault(value.Key)
                     )
                 ) ?? [];
             return new OkObjectResult(
