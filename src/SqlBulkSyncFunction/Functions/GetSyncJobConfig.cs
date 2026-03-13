@@ -122,9 +122,12 @@ public partial class GetSyncJobConfig(
             syncJobsConfig?.Value?.Jobs?.TryGetValue(id, out var jobConfig) == true &&
             StringComparer.OrdinalIgnoreCase.Equals(area, jobConfig?.Area))
         {
+            var utcNow = DateTimeOffset.UtcNow;
             var syncJob = jobConfig.ToSyncJob(
+                    null,
                     tokenCache: await tokenCacheService.GetTokenCache(jobConfig),
-                    expires: DateTimeOffset.UtcNow.AddMinutes(4),
+                    timestamp: utcNow,
+                    expires: utcNow.AddMinutes(4),
                     id: id,
                     schedule: nameof(jobConfig.Manual),
                     seed: false

@@ -1,6 +1,9 @@
 using System;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Options;
@@ -13,59 +16,90 @@ namespace SqlBulkSyncFunction.Functions;
 
 public partial class QueueGlobalChangeTracking(
     IOptions<SyncJobsConfig> syncJobsConfig,
-    ITokenCacheService tokenCacheService
+    ITokenCacheService tokenCacheService,
+    IProcessSyncJobService processSyncJobService,
+    SyncProgressService syncProgressService
     )
 {
     [Function(nameof(QueueGlobalChangeTracking) + nameof(Queue))]
-    public async Task<QueueGlobalChangeTrackingResult> Queue(
+    public async Task<IActionResult> Queue(
         [HttpTrigger(
             AuthorizationLevel.Function,
             "post",
             Route ="queue/{area}/{id}"
-        )] HttpRequestData req,
+        )] HttpRequest req,
         string area,
-        string id
-        ) => await GetQueueGlobalChangeTrackingResult(req, area, id);
+        string id,
+        CancellationToken cancellationToken
+        ) => await GetQueueGlobalChangeTrackingResult(req, area, id, false, cancellationToken);
 
     [Function(nameof(QueueGlobalChangeTracking) + nameof(Seed))]
-    public async Task<QueueGlobalChangeTrackingResult> Seed(
+    public async Task<IActionResult> Seed(
         [HttpTrigger(
             AuthorizationLevel.Function,
             "post",
             Route ="queue/{area}/{id}/{seed}"
-        )] HttpRequestData req,
+        )] HttpRequest req,
         string area,
         string id,
-        bool seed
-    ) => await GetQueueGlobalChangeTrackingResult(req, area, id, seed);
+        bool seed,
+        CancellationToken cancellationToken
+    ) => await GetQueueGlobalChangeTrackingResult(req, area, id, seed, cancellationToken);
 
-    private async Task<QueueGlobalChangeTrackingResult> GetQueueGlobalChangeTrackingResult(
-        HttpRequestData req,
+    private async Task<IActionResult> GetQueueGlobalChangeTrackingResult(
+#pragma warning disable IDE0060 // Remove unused parameter
+        HttpRequest req,
+#pragma warning restore IDE0060 // Remove unused parameter
         string area,
         string id,
-        bool seed = false
+        bool seed,
+        CancellationToken cancellationToken
         )
     {
+
         if (string.IsNullOrWhiteSpace(area) ||
             string.IsNullOrWhiteSpace(id) ||
             !syncJobsConfig.Value.Jobs.TryGetValue(id, out var jobConfig) ||
             !StringComparer.OrdinalIgnoreCase.Equals(area, jobConfig?.Area))
         {
-            return new QueueGlobalChangeTrackingResult(
-                null,
-                req.CreateResponse(HttpStatusCode.NotFound)
-            );
+            return new NotFoundResult();
         }
 
-        return new QueueGlobalChangeTrackingResult(
-            jobConfig.ToSyncJob(
+        LogSchedule logSchedule = new(
+                                         nameof(SyncJobConfig.Manual),
+                                         DateTimeOffset.UtcNow,
+                                         DateTimeOffset.UtcNow.AddMinutes(4),
+                                         false,
+                                         null,
+                                         null,
+                                         null
+                                     );
+
+        var syncJob = jobConfig.ToSyncJob(
+                logSchedule.CorrelationId,
                 tokenCache: await tokenCacheService.GetTokenCache(jobConfig),
-                expires: DateTimeOffset.UtcNow.AddMinutes(4),
+                timestamp: logSchedule.Timestamp,
+                expires: logSchedule.Expires,
                 id: id,
                 schedule: nameof(jobConfig.Manual),
                 seed: seed
-            ),
-            req.CreateResponse(HttpStatusCode.Accepted)
-        );
+            );
+
+        var result = logSchedule with
+        {
+            SyncJobs = [syncJob.ToLogSyncJob()]
+        };
+
+        await syncProgressService.Report(
+                 result,
+                 cancellationToken
+             );
+
+        await processSyncJobService.EnqueueSyncJob(syncJob, cancellationToken);
+
+        // TODO: consider returning a URL to check the status of the job
+        return new AcceptedResult(
+            location: null,
+            value: result);
     }
 }

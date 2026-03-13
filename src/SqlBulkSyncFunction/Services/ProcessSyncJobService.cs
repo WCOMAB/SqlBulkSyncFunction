@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
+using Azure.Storage.Queues;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using SqlBulkSyncFunction.Helpers;
@@ -12,10 +14,23 @@ using SqlBulkSyncFunction.Models.Schema;
 namespace SqlBulkSyncFunction.Services;
 
 public partial class ProcessSyncJobService(
-    ILogger<ProcessSyncJobService> logger
+    ILogger<ProcessSyncJobService> logger,
+    QueueServiceClient queueServiceClient
     ) : IProcessSyncJobService
 {
-    public async Task ProcessSyncJob(SyncJob syncJob, bool globalChangeTracking)
+    private readonly QueueClient _queueClient = GetSyncProgressQueueClient(queueServiceClient);
+
+    private static QueueClient GetSyncProgressQueueClient(QueueServiceClient queueServiceClient)
+    {
+        var queueClient = queueServiceClient.GetQueueClient(Constants.Queues.ProcessGlobalChangeTrackingQueue);
+        queueClient.CreateIfNotExists();
+        return queueClient;
+    }
+
+    public async Task EnqueueSyncJob(SyncJob syncJob, CancellationToken cancellationToken)
+        => await _queueClient.SendMessageAsync(BinaryData.FromObjectAsJson(syncJob), cancellationToken: cancellationToken);
+
+    public async Task ProcessSyncJob(SyncJob syncJob, bool globalChangeTracking, CancellationToken cancellationToken)
     {
         var (schedule, id, area) = (syncJob.Schedule, syncJob.Id, syncJob.Area);
         var scope = new { Schedule = schedule, Id = id, Area = area };
@@ -30,7 +45,7 @@ public partial class ProcessSyncJobService(
                 to = logger.BeginScope("{DataSource}.{Database}", targetConn.DataSource, targetConn.Database);
 
             LogConnectingToSourceDatabase(schedule, id, area, sourceConn.DataSource, sourceConn.Database);
-            await sourceConn.OpenAsync();
+            await sourceConn.OpenAsync(cancellationToken);
             LogConnected(schedule, id, area, sourceConn.ClientConnectionId);
 
             LogConnectingToTargetDatabase(schedule, id, area, targetConn.DataSource, targetConn.Database);
@@ -133,40 +148,4 @@ public partial class ProcessSyncJobService(
             targetConn.DropSyncTables(tableSchema, scope, logger);
         }
     }
-
-    [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} Connecting to source database {DataSource}.{Database}")]
-    private partial void LogConnectingToSourceDatabase(string schedule, string id, string area, string dataSource, string database);
-
-    [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} Connected {ClientConnectionId}")]
-    private partial void LogConnected(string schedule, string id, string area, Guid clientConnectionId);
-
-    [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} Connecting to target database {DataSource}.{Database}")]
-    private partial void LogConnectingToTargetDatabase(string schedule, string id, string area, string dataSource, string database);
-
-    [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} Ensuring sync schema and table exists...")]
-    private partial void LogEnsuringSyncSchemaAndTableExists(string schedule, string id, string area);
-
-    [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} Ensured sync schema and table exist")]
-    private partial void LogEnsuredSyncSchemaAndTableExist(string schedule, string id, string area);
-
-    [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} Fetching table schemas...")]
-    private partial void LogFetchingTableSchemas(string schedule, string id, string area);
-
-    [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} Found {TableCount} tables, duration {Elapsed}")]
-    private partial void LogFoundTablesDuration(string schedule, string id, string area, int tableCount, TimeSpan elapsed);
-
-    [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} Begin {TableSchemaScope}")]
-    private partial void LogBeginTableSchemaScope(string schedule, string id, string area, string tableSchemaScope);
-
-    [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} Already up to date")]
-    private partial void LogAlreadyUpToDate(string schedule, string id, string area);
-
-    [LoggerMessage(Level = LogLevel.Warning, Message = "{Schedule} {Id} {Area} Unknown / failed to fetch source version {Scope}.")]
-    private partial void LogUnknownSourceVersion(string schedule, string id, string area, string scope);
-
-    [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} End {TableSchemaScope}, duration {Elapsed}")]
-    private partial void LogEndTableSchemaScopeDuration(string schedule, string id, string area, string tableSchemaScope, TimeSpan elapsed);
-
-    [LoggerMessage(Level = LogLevel.Error, Message = "{Schedule} {Id} {Area} Exception {TableSchemaScope}, duration {Elapsed}, exception: {Message}")]
-    private partial void LogSyncException(Exception ex, string schedule, string id, string area, string tableSchemaScope, TimeSpan elapsed, string message);
 }
