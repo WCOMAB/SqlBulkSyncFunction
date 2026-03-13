@@ -11,28 +11,29 @@ The service was developed primary for syncing on premise SQL server data to Azur
 - Azure Functions Core Tools version 4.0, or a later version - https://docs.microsoft.com/en-us/azure/azure-functions/functions-run-local#v2
 - Azure CLI version 2.50, or a later version - https://docs.microsoft.com/en-us/cli/azure/install-azure-cli
 - IDE
-  - Visual Studio 2022 17.10, or a later version
+  - Visual Studio 2026 or a later version
   - VS Code 1.90, or a later version
 
 ## Configuration
 
 The function is configured through Azure App Settings / Environment variables, you can have multiple sync source/targets configures, and multiple tables per sync job.
 
-| Key                                                                 | Description                               | Example                                                                      |
-|---------------------------------------------------------------------|-------------------------------------------|------------------------------------------------------------------------------|
-| `ProcessGlobalChangeTrackingSchedule`                               | Custom schedule cron expression           | `0 */5 * * * *`                                                              |
-| `SyncJobsConfig__Jobs__[key]__Source__ConnectionString`             | Source database connection string         | `Server=my.dbserver.net;Initial Catalog=MySourceDb;Integrated Security=True` |
-| `SyncJobsConfig__Jobs__[key]__Source__ManagedIdentity`              | Flag for if managed identity used         | `false`                                                                      |
-| `SyncJobsConfig__Jobs__[key]__Source__TenantId`                     | Azure tenant ID used for managed identity | `46b41530-1e0d-4403-b815-24815944aa6a`                                       |
-| `SyncJobsConfig__Jobs__[key]__Target__ConnectionString`             | Target database connection string         | `Server=my.dbserver.net;Initial Catalog=MyTargetDb;Integrated Security=True` |
-| `SyncJobsConfig__Jobs__[key]__Target__ManagedIdentity`              | Flag for if managed identity used         | `true`                                                                       |
-| `SyncJobsConfig__Jobs__[key]__Target__TenantId`                     | Azure tenant ID used for managed identity | `46b41530-1e0d-4403-b815-24815944aa6a`                                       |
-| `SyncJobsConfig__Jobs__[key]__BatchSize`                            | Bulk sync batch size                      | `1000`                                                                       |
-| `SyncJobsConfig__Jobs__[key]__Area`                                 | Area name, used to manually trigger sync  | `Development`                                                                |
-| `SyncJobsConfig__Jobs__[key]__Manual`                               | Flag is sync excluded from schedules      | `true`                                                                       |
-| `SyncJobsConfig__Jobs__[key]__Schedules__[key]`                     | Optional opt-in/out schedules             | `true`                                                                       |
-| `SyncJobsConfig__Jobs__[key]__Tables__[key]`                        | Fully qualified name of table to sync     | `dbo.MyTable`                                                                |
-| `SyncJobsConfig__Jobs__[key]__DisableTargetIdentityInsertTables__[key]` | Optional, per table. When `true`, merge does not use `IDENTITY_INSERT` on target (use when target has no identity column but source does). | `true` or `false` |
+| Key                                                                      | Description                                                                                                                                  | Example                                                                      |
+|--------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
+| `ProcessGlobalChangeTrackingSchedule`                                    | Custom schedule cron expression                                                                                                              | `0 */5 * * * *`                                                              |
+| `SyncJobsConfig__Jobs__[key]__Source__ConnectionString`                  | Source database connection string                                                                                                            | `Server=my.dbserver.net;Initial Catalog=MySourceDb;Integrated Security=True` |
+| `SyncJobsConfig__Jobs__[key]__Source__ManagedIdentity`                   | Flag for if managed identity used                                                                                                            | `false`                                                                      |
+| `SyncJobsConfig__Jobs__[key]__Source__TenantId`                          | Azure tenant ID used for managed identity                                                                                                    | `46b41530-1e0d-4403-b815-24815944aa6a`                                       |
+| `SyncJobsConfig__Jobs__[key]__Target__ConnectionString`                  | Target database connection string                                                                                                            | `Server=my.dbserver.net;Initial Catalog=MyTargetDb;Integrated Security=True` |
+| `SyncJobsConfig__Jobs__[key]__Target__ManagedIdentity`                   | Flag for if managed identity used                                                                                                            | `true`                                                                       |
+| `SyncJobsConfig__Jobs__[key]__Target__TenantId`                          | Azure tenant ID used for managed identity                                                                                                    | `46b41530-1e0d-4403-b815-24815944aa6a`                                       |
+| `SyncJobsConfig__Jobs__[key]__BatchSize`                                 | Bulk sync batch size                                                                                                                         | `1000`                                                                       |
+| `SyncJobsConfig__Jobs__[key]__Area`                                      | Area name, used to manually trigger sync                                                                                                     | `Development`                                                                |
+| `SyncJobsConfig__Jobs__[key]__Manual`                                    | Flag is sync excluded from schedules                                                                                                         | `true`                                                                       |
+| `SyncJobsConfig__Jobs__[key]__Schedules__[key]`                          | Optional opt-in/out schedules                                                                                                                | `true`                                                                       |
+| `SyncJobsConfig__Jobs__[key]__Tables__[key]`                             | Fully qualified name of table to sync                                                                                                        | `dbo.MyTable`                                                                |
+| `SyncJobsConfig__Jobs__[key]__DisableTargetIdentityInsertTables__[key]`  | Optional, per table. When `true`, merge does not use `IDENTITY_INSERT` on target (use when target has no identity column but source does).   | `true` or `false`                                                            |
+| `SyncJobsConfig__Jobs__[key]__DisableConstraintCheckTables__[key]`       | Optional, per table. When `true`, disables constraint checking during merge. Useful for tables with foreign key dependencies.                | `true` or `false`                                                            |
 
 
 > Note:
@@ -40,6 +41,8 @@ The function is configured through Azure App Settings / Environment variables, y
 > Replace `[key]` with unique name of sync job / table config i.e. `MySync` / `MyTable` would result in `SyncJobsConfig__Jobs__MySync__Tables__MyTable`=`dbo.MyTable`
 >
 > **DisableTargetIdentityInsertTables**: Omit or set to `false` to copy identity values from source (default). Set to `true` per table when the target schema has no identity column but the source does.
+>
+> **DisableConstraintCheckTables**: Omit or set to `false` to keep constraints enabled during merge (default). Set to `true` per table when syncing tables with foreign key dependencies that may cause constraint violations due to merge order.
 >
 > Configuration from KeyVault replace `__` with `--` i.e. `SyncJobsConfig--Jobs--MySync--Tables--MyTable`
 
