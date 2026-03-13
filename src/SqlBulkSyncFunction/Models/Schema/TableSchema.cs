@@ -28,6 +28,7 @@ public record TableSchema
     public TableVersion TargetVersion { get; }
     public int BatchSize { get; }
     public bool DisableTargetIdentityInsert { get; }
+    public bool DisableConstraintCheck { get; }
     private TableSchema(
         SyncJobTable table,
         Column[] columns,
@@ -47,6 +48,7 @@ public record TableSchema
         SourceTableName = table.Source;
         TargetTableName = table.Target;
         DisableTargetIdentityInsert = table.DisableTargetIdentityInsert;
+        DisableConstraintCheck = table.DisableConstraintCheck;
         SyncNewOrUpdatedTableName = FormattableString.Invariant($"sync.[{bufferName}_{DateTime.UtcNow:yyyyMMdd}_{targetVersion.CurrentVersion:00000000}_NewOrUpdated]");
         SyncDeletedTableName = FormattableString.Invariant($"sync.[{bufferName}_{DateTime.UtcNow:yyyyMMdd}_{targetVersion.CurrentVersion:00000000}_DeletedTable]");
         Columns = columns;
@@ -59,7 +61,7 @@ public record TableSchema
         SourceNewOrUpdatedSelectStatement = this.GetNewOrUpdatedAtSourceSelectStatement();
         SourceSelectAllStatement = this.GetSourceSelectAllStatement();
         SourceDeletedSelectStatement = this.GetDeletedAtSourceSelectStatement();
-        MergeNewOrUpdateStatement = this.GetNewOrUpdatedMergeStatement(DisableTargetIdentityInsert);
+        MergeNewOrUpdateStatement = this.GetNewOrUpdatedMergeStatement(DisableTargetIdentityInsert, DisableConstraintCheck);
         DeleteStatement = this.GetDeleteStatement();
         DropNewOrUpdatedTableStatement = SyncNewOrUpdatedTableName.GetDropStatement();
         DropDeletedTableStatement = SyncDeletedTableName.GetDropStatement();

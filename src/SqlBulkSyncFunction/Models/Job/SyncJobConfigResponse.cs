@@ -9,10 +9,12 @@ namespace SqlBulkSyncFunction.Models.Job;
 /// <param name="Source">Source table name.</param>
 /// <param name="Target">Target table name.</param>
 /// <param name="DisableTargetIdentityInsert">Whether target identity insert is disabled for this table.</param>
+/// <param name="DisableConstraintCheck">Whether constraint checking is disabled during merge operations for this table.</param>
 public record SyncJobConfigTableDto(
     [property: JsonPropertyName("source")] string Source,
     [property: JsonPropertyName("target")] string Target,
-    [property: JsonPropertyName("disableTargetIdentityInsert")] bool DisableTargetIdentityInsert
+    [property: JsonPropertyName("disableTargetIdentityInsert")] bool DisableTargetIdentityInsert,
+    [property: JsonPropertyName("disableConstraintCheck")] bool DisableConstraintCheck
 );
 
 /// <summary>

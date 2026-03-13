@@ -26,10 +26,22 @@ await new HostBuilder()
                 .AddAzureClients(
                     az => {
                         var connectionString = System.Environment.GetEnvironmentVariable("AzureWebJobsStorage");
-                        _ = az.AddBlobServiceClient(connectionString);
+                        _ = az
+                            .AddBlobServiceClient(connectionString).ConfigureOptions(
+                                options => {
+                                    options.Diagnostics.IsLoggingContentEnabled = false;
+                                    options.Diagnostics.IsLoggingEnabled = false;
+                                }
+                                );
                         _ = az
                             .AddQueueServiceClient(connectionString)
-                            .ConfigureOptions(options => options.MessageEncoding = Azure.Storage.Queues.QueueMessageEncoding.Base64);
+                            .ConfigureOptions(
+                                options => {
+                                    options.MessageEncoding = Azure.Storage.Queues.QueueMessageEncoding.Base64;
+                                    options.Diagnostics.IsLoggingContentEnabled = false;
+                                    options.Diagnostics.IsLoggingEnabled = false;
+                                }
+                            );
                     }
                 );
 
