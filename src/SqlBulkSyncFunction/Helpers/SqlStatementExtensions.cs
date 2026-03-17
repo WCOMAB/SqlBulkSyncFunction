@@ -121,11 +121,12 @@ public static class SqlStatementExtensions
                 ),
             (
                 (tableSchema.TargetVersion.CurrentVersion < 0)
-                    ? """
+                    ? string.Empty
+                        //"""
 
-                    WHEN NOT MATCHED BY SOURCE
-                        THEN DELETE
-                    """
+                        //WHEN NOT MATCHED BY SOURCE
+                        //    THEN DELETE
+                        //"""
                     : string.Empty
                 ),
             (
