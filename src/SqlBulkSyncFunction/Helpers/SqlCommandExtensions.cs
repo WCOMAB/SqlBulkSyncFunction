@@ -64,11 +64,19 @@ public static class SqlCommandExtensions
         ILogger logger
         )
     {
-        var rowCount = targetConn.Query<long>(
-            commandTimeout: 500000,
-            sql: tableSchema.MergeNewOrUpdateStatement
-            ).First();
-        logger.LogInformation("{Scope} {RowCount} records merged", scope, rowCount);
+        try
+        {
+            var rowCount = targetConn.Query<long>(
+                commandTimeout: 500000,
+                sql: tableSchema.MergeNewOrUpdateStatement
+                ).First();
+            logger.LogInformation("{Scope} {RowCount} records merged", scope, rowCount);
+        }
+        catch(Exception ex)
+        {
+            logger.LogError(ex, "Merge failed for {Scope} with statement {MergeNewOrUpdateStatement}\r\n{Exception}", scope, tableSchema.MergeNewOrUpdateStatement, ex.Message);
+            throw;
+        }
     }
 
     public static void DeleteData(
