@@ -58,67 +58,85 @@ public static class SqlStatementExtensions
     public static string GetNewOrUpdatedMergeStatement(this TableSchema tableSchema, bool disableTargetIdentityInsert, bool disableConstraintCheck)
     {
         var identityInsert = !disableTargetIdentityInsert && tableSchema.Columns.Any(column => column.IsIdentity);
+        var updatableColumns = tableSchema.Columns
+            .Where(column => !column.IsPrimary && !column.IsIdentity)
+            .ToArray();
+        var whenMatchedBlock = updatableColumns.Length == 0
+            ? string.Empty
+            : string.Format(
+                """
+                WHEN MATCHED
+                    THEN UPDATE
+                        SET {0}
+                """,
+                string.Join(
+                    ",\r\n            ",
+                    updatableColumns
+                        .Select(
+                            column => string.Concat(
+                                    column.QuoteName,
+                                    " = source.",
+                                    column.QuoteName
+                                )
+                        )
+                    )
+                );
         var statement = string.Format(
             """
-            {9}
-            {6};
-            MERGE {0} AS target
-            USING {1} AS source
-            ON {2}
+            {0}
+            {1}
+
+            MERGE {2} AS target
+            USING {3} AS source
+            ON {4}
             WHEN NOT MATCHED BY TARGET
                 THEN INSERT (
-                    {3}
+                    {5}
                 ) VALUES (
-                    {4}
-                ){8}
-            WHEN MATCHED
-                THEN UPDATE
-                    SET {5};
-            SELECT @@ROWCOUNT AS [RowCount];
+                    {6}
+                )
             {7}
+            {8};
+
+            SELECT @@ROWCOUNT AS [RowCount];
+
+            {9}
             {10}
             """,
+            (
+                disableConstraintCheck
+                    ? $"ALTER TABLE {tableSchema.TargetTableName} NOCHECK CONSTRAINT ALL;"
+                    : string.Empty
+                ),
+            (
+                identityInsert
+                    ? $"SET IDENTITY_INSERT {tableSchema.TargetTableName} ON;"
+                    : string.Empty
+                ),
             tableSchema.TargetTableName,
             tableSchema.SyncNewOrUpdatedTableName,
             string.Join(
                 " AND\r\n        ",
-                tableSchema.Columns.Where(column => column.IsPrimary).Select(
-                    column => string.Concat(
-                        "target.",
-                        column.QuoteName,
-                        " = source.",
-                        column.QuoteName
-                        )
-                    )
-                ),
+                tableSchema
+                    .Columns
+                        .Where(column => column.IsPrimary)
+                        .Select(
+                            column => string.Concat(
+                                "target.",
+                                column.QuoteName,
+                                " = source.",
+                                column.QuoteName
+                                )
+                            )
+            ),
             string.Join(
                 ",\r\n        ",
                 tableSchema.Columns.Select(column => column.QuoteName)
-                ),
+            ),
             string.Join(
                 ",\r\n        ",
                 tableSchema.Columns.Select(column => string.Concat("source.", column.QuoteName))
-                ),
-            string.Join(
-                ",\r\n            ",
-                tableSchema.Columns.Where(column => !column.IsPrimary && !column.IsIdentity).Select(
-                    column => string.Concat(
-                        column.QuoteName,
-                        " = source.",
-                        column.QuoteName
-                        )
-                    )
-                ),
-            (
-                identityInsert
-                    ? $"SET IDENTITY_INSERT {tableSchema.TargetTableName} ON"
-                    : string.Empty
-                ),
-            (
-                identityInsert
-                    ? $"SET IDENTITY_INSERT {tableSchema.TargetTableName} OFF"
-                    : string.Empty
-                ),
+            ),
             (
                 (tableSchema.TargetVersion.CurrentVersion < 0)
                     ? string.Empty
@@ -128,10 +146,11 @@ public static class SqlStatementExtensions
                         //    THEN DELETE
                         //"""
                     : string.Empty
-                ),
+            ),
+            whenMatchedBlock,
             (
-                disableConstraintCheck
-                    ? $"ALTER TABLE {tableSchema.TargetTableName} NOCHECK CONSTRAINT ALL;"
+                identityInsert
+                    ? $"SET IDENTITY_INSERT {tableSchema.TargetTableName} OFF;"
                     : string.Empty
                 ),
             (
