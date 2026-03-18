@@ -74,6 +74,7 @@ To quicker get started testing the function locally example configuration and da
   "Values": {
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "Logging__LogLevel__Default": "Information",
     "ProcessGlobalChangeTrackingSchedule": "0 23 11 * * *",
     "SyncJobsConfig__Jobs__SyncTest__Area": "SyncTest",
     "SyncJobsConfig__Jobs__SyncTest__Source__ConnectionString": "Server=localhost;Initial Catalog=SyncTest;Integrated Security=True",
