@@ -61,6 +61,31 @@ public static class SqlStatementExtensions
                 FROM CHANGETABLE(CHANGES {sourceTableName}, @FromVersion) AS ct
             """;
 
+    /// <summary>
+    /// Builds a query that returns only primary key values and operation code for each changed row from
+    /// <c>CHANGETABLE(CHANGES ...)</c>. Result includes one row per change with operation in <c>Operation</c>.
+    /// </summary>
+    /// <param name="sourceTableName">Fully qualified source table name (e.g. <c>[dbo].[MyTable]</c>).</param>
+    /// <param name="columns">Source table columns used to select primary key fields.</param>
+    public static string GetChangeTrackingPrimaryKeyDetailsSelectStatement(string sourceTableName, Column[] columns)
+    {
+        var primaryColumns = columns
+            .Where(column => column.IsPrimary)
+            .Select(column => string.Concat("ct.", column.QuoteName, " AS ", column.QuoteName))
+            .ToArray();
+
+        if (primaryColumns.Length == 0)
+        {
+            throw new Exception($"Missing primary key columns for table {sourceTableName}.");
+        }
+
+        return $"""
+            SELECT  ct.SYS_CHANGE_OPERATION AS Operation,
+                    {string.Join(",\r\n        ", primaryColumns)}
+                FROM CHANGETABLE(CHANGES {sourceTableName}, @FromVersion) AS ct
+            """;
+    }
+
     public static string GetDropStatement(this string tableName)
         =>  $"""
             IF OBJECT_ID('{tableName}') IS NOT NULL
