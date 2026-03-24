@@ -47,6 +47,20 @@ public static class SqlStatementExtensions
             );
     }
 
+    /// <summary>
+    /// Builds a query that aggregates <c>CHANGETABLE</c> rows by <c>SYS_CHANGE_OPERATION</c>,
+    /// producing <c>Updated</c>, <c>Inserted</c>, and <c>Deleted</c> counts (one row per table).
+    /// Pass <c>@FromVersion</c> as <c>NULL</c> when no row exists in <c>sync.TableVersion</c> (never synced).
+    /// </summary>
+    /// <param name="sourceTableName">Fully qualified source table name (e.g. <c>[dbo].[MyTable]</c>).</param>
+    public static string GetChangeTrackingOperationCountsSelectStatement(string sourceTableName)
+        => $"""
+            SELECT  ISNULL(SUM(CASE WHEN ct.SYS_CHANGE_OPERATION = N'U' THEN 1 ELSE 0 END), 0) AS Updated,
+                    ISNULL(SUM(CASE WHEN ct.SYS_CHANGE_OPERATION = N'I' THEN 1 ELSE 0 END), 0) AS Inserted,
+                    ISNULL(SUM(CASE WHEN ct.SYS_CHANGE_OPERATION = N'D' THEN 1 ELSE 0 END), 0) AS Deleted
+                FROM CHANGETABLE(CHANGES {sourceTableName}, @FromVersion) AS ct
+            """;
+
     public static string GetDropStatement(this string tableName)
         =>  $"""
             IF OBJECT_ID('{tableName}') IS NOT NULL
