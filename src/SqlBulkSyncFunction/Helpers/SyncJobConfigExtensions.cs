@@ -56,6 +56,7 @@ public static class SyncJobConfigExtensions
 
         return [.. job.Tables.Select(
             sourceTable => new SyncJobTable(
+                sourceTable.Key,
                 sourceTable.Value,
                 targetTableLookup?[sourceTable.Key].FirstOrDefault() switch
                 {
