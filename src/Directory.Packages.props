@@ -19,5 +19,6 @@
     <PackageVersion Include="Microsoft.Azure.Functions.Worker.Sdk" Version="2.0.7" />
     <PackageVersion Include="Microsoft.Data.SqlClient" Version="7.0.0" />
     <PackageVersion Include="NuGetizer" Version="1.4.7" />
+    <PackageVersion Include="Cronos" Version="0.11.1" />
   </ItemGroup>
 </Project>

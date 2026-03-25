@@ -31,6 +31,8 @@ await new HostBuilder()
                 .AddSingleton<IProcessSyncJobService, ProcessSyncJobService>()
                 .AddSingleton<ITokenCacheService, TokenCacheService>()
                 .AddSingleton<SyncProgressService>()
+                .AddSingleton<SyncMonitoringAggregationService>()
+                .AddSingleton<ProcessGlobalChangeTrackingScheduleNextRun>()
                 .AddAzureClients(
                     static az => {
                         var connectionString = System.Environment.GetEnvironmentVariable("AzureWebJobsStorage");

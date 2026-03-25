@@ -6,8 +6,6 @@ namespace SqlBulkSyncFunction.Models.Job;
 
 public record SyncJobsConfig
 {
-    private static readonly string[] DefaultJobSchedules = ["Custom"];
-
     public Dictionary<string, SyncJobConfig> Jobs { get; init; }
 
     public Lazy<ILookup<string, (string Key, KeyValuePair<string, SyncJobConfig> Job)>> ScheduledJobs { get; }
@@ -31,7 +29,7 @@ public record SyncJobsConfig
             ||
             job.Value.Schedules.Count == 0
         )
-            ? DefaultJobSchedules
+            ? []
             : job.Value.Schedules
                 .Where(value => value.Value)
                 .Select(key => key.Key);
