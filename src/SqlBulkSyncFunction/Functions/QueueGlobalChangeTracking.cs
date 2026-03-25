@@ -90,6 +90,17 @@ public partial class QueueGlobalChangeTracking(
             SyncJobs = [syncJob.ToLogSyncJob()]
         };
 
+        var createdProgress = new SyncJobProgress(
+                        Area: syncJob.Area,
+                        ConfigurationId: syncJob.Id,
+                        Schedule: syncJob.Schedule,
+                        ScheduleCorrelationId: syncJob.ScheduleCorrelationId,
+                        SyncJobCorrelationId: syncJob.CorrelationId,
+                        State: SyncJobProgressState.Created
+                    );
+
+        await syncProgressService.Report(createdProgress, cancellationToken);
+
         await syncProgressService.Report(
                  result,
                  cancellationToken

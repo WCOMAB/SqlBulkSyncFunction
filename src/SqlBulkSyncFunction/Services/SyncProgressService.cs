@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 using Azure.Storage.Queues;
 using SqlBulkSyncFunction.Models;
 
@@ -62,9 +63,12 @@ public class SyncProgressService(
         _ = await _syncJobBlobContainerClient
                     .GetBlobClient($"{value.CorrelationId}.json")
                     .UploadAsync(
-                        content: BinaryData.FromObjectAsJson(value),
-                        overwrite: true,
-                        cancellationToken: cancellationToken
+                        BinaryData.FromObjectAsJson(value),
+                        new BlobUploadOptions
+                        {
+                            HttpHeaders = new BlobHttpHeaders { ContentType = Constants.BlobContentTypes.Json },
+                        },
+                        cancellationToken
                     );
 
         if (_queueClients.TryGetValue(value.State, out var _queueClient))
@@ -80,9 +84,12 @@ public class SyncProgressService(
         _ = await _syncScheduleBlobContainerClient
                    .GetBlobClient($"{value.CorrelationId}.json")
                    .UploadAsync(
-                       content: BinaryData.FromObjectAsJson(value),
-                       overwrite: true,
-                       cancellationToken: cancellationToken
+                       BinaryData.FromObjectAsJson(value),
+                       new BlobUploadOptions
+                       {
+                           HttpHeaders = new BlobHttpHeaders { ContentType = Constants.BlobContentTypes.Json },
+                       },
+                       cancellationToken
                    );
 
         _ = await _logScheduleQueueClient.SendMessageAsync(value.CorrelationId, cancellationToken);

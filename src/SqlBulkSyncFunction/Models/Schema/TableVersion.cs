@@ -8,4 +8,5 @@ public record TableVersion
     public long CurrentVersion { get; set; }
     public long MinValidVersion { get; set; }
     public DateTimeOffset Queried { get; set; }
+    public DateTimeOffset? Updated { get; set; }
 };

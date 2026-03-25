@@ -69,12 +69,12 @@ public static class SchemaExtensions
                 """
                 MERGE sync.TableVersion as target
                 USING (
-                    SELECT @TableName           AS TableName,
-                        @CurrentVersion      AS CurrentVersion,
-                        @MinValidVersion     AS MinValidVersion,
-                        @Queried             AS Queried,
-                        SYSDATETIMEOFFSET()  AS Updated,
-                        SYSDATETIMEOFFSET()  AS Created
+                    SELECT  @TableName           AS TableName,
+                            @CurrentVersion      AS CurrentVersion,
+                            @MinValidVersion     AS MinValidVersion,
+                            @Queried             AS Queried,
+                            SYSDATETIMEOFFSET()  AS Updated,
+                            SYSDATETIMEOFFSET()  AS Created
                 ) as source
                 ON target.TableName = source.TableName
                 WHEN NOT MATCHED BY target
@@ -103,12 +103,13 @@ public static class SchemaExtensions
                 OUTPUT  inserted.TableName,
                         inserted.CurrentVersion,
                         inserted.MinValidVersion,
+                        inserted.Updated,
                         inserted.Queried;
                 """
             )
             .SingleOrDefault();
 
-        if (persistedTableVersion != syncedTableVersion)
+        if (persistedTableVersion != syncedTableVersion with { Updated = persistedTableVersion.Updated })
         {
             throw new Exception($"Failed to persist {syncedTableVersion} ({persistedTableVersion})");
         }
@@ -130,7 +131,8 @@ public static class SchemaExtensions
                 SELECT  TableName,
                         CurrentVersion,
                         MinValidVersion,
-                        Queried
+                        Queried,
+                        Updated
                     FROM sync.TableVersion
                     WHERE TableName = @TableName
                 """

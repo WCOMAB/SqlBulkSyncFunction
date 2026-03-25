@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using SqlBulkSyncFunction;
 using SqlBulkSyncFunction.Helpers;
 using SqlBulkSyncFunction.Models;
 using SqlBulkSyncFunction.Models.Job;
@@ -25,32 +26,32 @@ public partial class ProcessGlobalChangeTrackingSchedule(
 
     [Function(FunctionName + nameof(Custom))]
     public Task Custom(
-        [TimerTrigger("%ProcessGlobalChangeTrackingSchedule%")]
+        [TimerTrigger(Constants.Schedules.CustomScheduleTimerTrigger)]
         TimerInfo timerInfo,
         CancellationToken cancellationToken
     ) => ProcessSchedule(timerInfo, cancellationToken);
 
     [Function(FunctionName + nameof(Midnight))]
     public Task Midnight(
-        [TimerTrigger("0 0 0 * * *")] TimerInfo timerInfo,
+        [TimerTrigger(Constants.Schedules.MidnightCron)] TimerInfo timerInfo,
         CancellationToken cancellationToken
     ) => ProcessSchedule(timerInfo, cancellationToken);
 
     [Function(FunctionName + nameof(Noon))]
     public Task Noon(
-        [TimerTrigger("0 0 12 * * *")] TimerInfo timerInfo,
+        [TimerTrigger(Constants.Schedules.NoonCron)] TimerInfo timerInfo,
         CancellationToken cancellationToken
     ) => ProcessSchedule(timerInfo, cancellationToken);
 
     [Function(FunctionName + nameof(EveryFiveMinutes))]
     public Task EveryFiveMinutes(
-        [TimerTrigger("5 */5 * * * *")] TimerInfo timerInfo,
+        [TimerTrigger(Constants.Schedules.EveryFiveMinutesCron)] TimerInfo timerInfo,
         CancellationToken cancellationToken
     ) => ProcessSchedule(timerInfo, cancellationToken);
 
     [Function(FunctionName + nameof(EveryHour))]
     public Task EveryHour(
-        [TimerTrigger("10 0 * * * *")] TimerInfo timerInfo,
+        [TimerTrigger(Constants.Schedules.EveryHourCron)] TimerInfo timerInfo,
         CancellationToken cancellationToken
     ) => ProcessSchedule(timerInfo, cancellationToken);
 
