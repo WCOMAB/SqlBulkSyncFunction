@@ -12,7 +12,7 @@
     <PackageVersion Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.7.0" />
     <PackageVersion Include="Microsoft.Azure.Functions.Worker.OpenTelemetry" Version="1.1.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.15.2" />
-    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.15.1" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.15.2" />
     <PackageVersion Include="Microsoft.Azure.Functions.Worker.Extensions.Timer" Version="4.3.1" />
     <PackageVersion Include="Microsoft.Azure.Functions.Worker.Extensions.Storage" Version="6.8.1" />
     <PackageVersion Include="Microsoft.Azure.Functions.Worker" Version="2.51.0" />
