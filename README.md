@@ -61,6 +61,15 @@ The function is configured through Azure App Settings / Environment variables, y
 >
 > `Custom` schedule is default if no scheduled is specified in sync job configuration.
 
+## Schema tracking export
+
+Asynchronous export of change-tracking data (full rows for inserts/updates, primary keys for deletes) uses the same storage account as `AzureWebJobsStorage`: blob container `export`, table `exportjobs`. 
+
+HTTP routes (Function authorization level):
+
+- `POST /api/config/{area}/{id}/schema/tracking/{tableId}/export` — JSON body `{ "author", "referenceId", "purpose" }`; returns `202 Accepted` with `Location` pointing at status.
+- `GET /api/config/{area}/{id}/schema/tracking/{tableId}/export/status/{*correlationId}` — same item shape as list; includes optional `result` when `response/result.json` exists.
+- `GET /api/config/{area}/{id}/schema/tracking/{tableId}/export/status` — list jobs for that table partition.
 
 ## Development resources
 

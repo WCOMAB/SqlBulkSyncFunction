@@ -1,3 +1,5 @@
+using System;
+using Azure.Data.Tables;
 using Azure.Monitor.OpenTelemetry.Exporter;
 using Microsoft.Azure.Functions.Worker.OpenTelemetry;
 using Microsoft.Extensions.Azure;
@@ -33,6 +35,14 @@ await new HostBuilder()
                 .AddSingleton<SyncProgressService>()
                 .AddSingleton<SyncMonitoringAggregationService>()
                 .AddSingleton<ProcessGlobalChangeTrackingScheduleNextRun>()
+                .AddSingleton(
+                    static _ =>
+                    {
+                        var connectionString = Environment.GetEnvironmentVariable("AzureWebJobsStorage")
+                            ?? throw new InvalidOperationException("AzureWebJobsStorage is not set.");
+                        return new TableServiceClient(connectionString);
+                    })
+                .AddSingleton<SchemaTrackingExportService>()
                 .AddAzureClients(
                     static az => {
                         var connectionString = System.Environment.GetEnvironmentVariable("AzureWebJobsStorage");

@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using SqlBulkSyncFunction.Models.Schema;
+using SqlBulkSyncFunction.Models.Schema.Export;
 
 namespace SqlBulkSyncFunction.Helpers;
 
@@ -83,6 +84,69 @@ public static class SqlStatementExtensions
             SELECT  ct.SYS_CHANGE_OPERATION AS Operation,
                     {string.Join(",\r\n        ", primaryColumns)}
                 FROM CHANGETABLE(CHANGES {sourceTableName}, @FromVersion) AS ct
+            """;
+    }
+
+    /// <summary>
+    /// Builds a query for one export segment: insert/update rows join the live table for full column values;
+    /// delete rows return primary key columns from <c>CHANGETABLE</c> only.
+    /// <c>SYS_CHANGE_OPERATION</c> is not projected (segment already implies I/U/D) to reduce payload size.
+    /// </summary>
+    /// <param name="sourceTableName">Fully qualified source table name.</param>
+    /// <param name="columns">Source columns (explicit list; no <c>*</c>).</param>
+    /// <param name="segment">Which change operation to return.</param>
+    /// <returns>Parameterized SQL using <c>@FromVersion</c>.</returns>
+    public static string GetChangeTrackingExportSegmentSelectStatement(
+        string sourceTableName,
+        Column[] columns,
+        SchemaTrackingExportSegment segment
+        )
+    {
+        var primaryKeyColumns = columns.Where(column => column.IsPrimary).ToArray();
+        if (primaryKeyColumns.Length == 0)
+        {
+            throw new InvalidOperationException($"Missing primary key columns for table {sourceTableName}.");
+        }
+
+        var operationFilter = segment switch
+        {
+            SchemaTrackingExportSegment.Updated => "N'U'",
+            SchemaTrackingExportSegment.Inserted => "N'I'",
+            SchemaTrackingExportSegment.Deleted => "N'D'",
+            _ => throw new ArgumentOutOfRangeException(nameof(segment))
+        };
+
+        if (segment == SchemaTrackingExportSegment.Deleted)
+        {
+            var primarySelect = string.Join(
+                ",\r\n        ",
+                primaryKeyColumns.Select(column => string.Concat("ct.", column.QuoteName, " AS ", column.QuoteName))
+            );
+
+            return $"""
+                SELECT  {primarySelect}
+                    FROM CHANGETABLE(CHANGES {sourceTableName}, @FromVersion) AS ct
+                    WHERE ct.SYS_CHANGE_OPERATION = {operationFilter}
+                """;
+        }
+
+        var pkJoin = string.Join(
+            " AND\r\n        ",
+            primaryKeyColumns.Select(
+                column => string.Concat("ct.", column.QuoteName, " = t.", column.QuoteName)
+            )
+        );
+
+        var tableColumns = string.Join(
+            ",\r\n        ",
+            columns.Select(column => string.Concat("t.", column.QuoteName, " AS ", column.QuoteName))
+        );
+
+        return $"""
+            SELECT  {tableColumns}
+                FROM CHANGETABLE(CHANGES {sourceTableName}, @FromVersion) AS ct
+                    INNER JOIN {sourceTableName} AS t ON {pkJoin}
+                WHERE ct.SYS_CHANGE_OPERATION = {operationFilter}
             """;
     }
 
@@ -262,7 +326,7 @@ public static class SqlStatementExtensions
                         column => column.QuoteName
                     )
                 ),
-            Guid.NewGuid()
+            Guid.CreateVersion7()
             );
         return statement;
     }
@@ -295,7 +359,7 @@ public static class SqlStatementExtensions
                         )
                     )
                 ),
-            Guid.NewGuid(),
+            Guid.CreateVersion7(),
             string.Join(
                 ",\r\n    ",
                 tableSchema.Columns

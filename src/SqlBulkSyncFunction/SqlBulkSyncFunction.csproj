@@ -23,6 +23,7 @@
     <PackageReference Include="Microsoft.Azure.Functions.Worker" />
     <PackageReference Include="Microsoft.Azure.Functions.Worker.Sdk" OutputItemType="Analyzer" />
     <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="Azure.Data.Tables" />
   </ItemGroup>
   <ItemGroup>
     <None Update="host.json">

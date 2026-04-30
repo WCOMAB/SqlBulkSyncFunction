@@ -21,7 +21,58 @@ public static class Constants
         /// Sync progress queue name.
         /// </summary>
         public const string SyncJobProgressQueue = "syncjobprogress";
+
+        /// <summary>
+        /// Main queue for schema tracking data export jobs (message body: full correlation id path).
+        /// </summary>
+        public const string ExportJob = "exportjob";
+
+        /// <summary>
+        /// Queue for export workers that build the updated-rows ZIP from change tracking.
+        /// </summary>
+        public const string ExportJobUpdated = "exportjob-updated";
+
+        /// <summary>
+        /// Queue for export workers that build the inserted-rows ZIP from change tracking.
+        /// </summary>
+        public const string ExportJobInserted = "exportjob-inserted";
+
+        /// <summary>
+        /// Queue for export workers that build the deleted-rows ZIP from change tracking.
+        /// </summary>
+        public const string ExportJobDeleted = "exportjob-deleted";
+
+        /// <summary>
+        /// Signaled when the updated ZIP has been written for an export job.
+        /// </summary>
+        public const string ExportJobUpdatedDone = ExportJobUpdated + "-done";
+
+        /// <summary>
+        /// Signaled when the inserted ZIP has been written for an export job.
+        /// </summary>
+        public const string ExportJobInsertedDone = ExportJobInserted + "-done";
+
+        /// <summary>
+        /// Signaled when the deleted ZIP has been written for an export job.
+        /// </summary>
+        public const string ExportJobDeletedDone = ExportJobDeleted + "-done";
+
+        /// <summary>
+        /// Updated segment only: message body is the correlation id when <c>ProcessExportSegmentAsync</c> throws during processing (SQL/ZIP/blob). Invalid queue bodies are rejected at the trigger with <c>ArgumentException.ThrowIfNullOrEmpty</c>.
+        /// </summary>
+        public const string ExportJobUpdatedError = ExportJobUpdated + "-error";
+
+        /// <summary>
+        /// Inserted segment only: correlation id when segment processing throws.
+        /// </summary>
+        public const string ExportJobInsertedError = ExportJobInserted + "-error";
+
+        /// <summary>
+        /// Deleted segment only: correlation id when segment processing throws.
+        /// </summary>
+        public const string ExportJobDeletedError = ExportJobDeleted + "-error";
     }
+
     /// <summary>
     /// NCRONTAB expressions and configuration keys for <see cref="Functions.ProcessGlobalChangeTrackingSchedule"/> timer triggers.
     /// </summary>
@@ -63,6 +114,22 @@ public static class Constants
         /// Blob container for per-job monitoring aggregates (written by the aggregation timer).
         /// </summary>
         public const string Monitor = "monitor";
+
+        /// <summary>
+        /// Blob container for schema tracking export requests, jobs, response ZIPs, and result metadata.
+        /// </summary>
+        public const string Export = "export";
+    }
+
+    /// <summary>
+    /// Azure Table Storage table names used by the function app.
+    /// </summary>
+    public static class Tables
+    {
+        /// <summary>
+        /// Table storing export job state (partition: area_id_tableId, row: export job guid).
+        /// </summary>
+        public const string ExportJobs = "exportjobs";
     }
 
     /// <summary>
@@ -72,5 +139,8 @@ public static class Constants
     {
         /// <summary>JSON documents (UTF-8).</summary>
         public const string Json = "application/json; charset=utf-8";
+
+        /// <summary>ZIP archives.</summary>
+        public const string Zip = "application/zip";
     }
 }

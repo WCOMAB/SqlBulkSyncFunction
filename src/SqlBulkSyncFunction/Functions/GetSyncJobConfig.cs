@@ -8,7 +8,8 @@ namespace SqlBulkSyncFunction.Functions;
 public partial class GetSyncJobConfig(
     ILogger<GetSyncJobConfig> logger,
     IOptions<SyncJobsConfig> syncJobsConfig,
-    ITokenCacheService tokenCacheService
+    ITokenCacheService tokenCacheService,
+    SchemaTrackingExportService schemaTrackingExportService
     )
 {
 }
