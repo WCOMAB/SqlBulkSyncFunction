@@ -16,6 +16,7 @@ namespace SqlBulkSyncFunction.Models.Schema.Export;
 /// <param name="UpdatedDone">Whether the updated ZIP leg completed.</param>
 /// <param name="InsertedDone">Whether the inserted ZIP leg completed.</param>
 /// <param name="DeletedDone">Whether the deleted ZIP leg completed.</param>
+/// <param name="TargetPresenceDone">Whether the target-presence ZIP pair (<c>existing.zip</c> / <c>missing.zip</c>) completed.</param>
 /// <param name="Error">Optional error message when status is failed.</param>
 /// <param name="Result">Populated for single-job status when <c>response/result.json</c> exists; otherwise <see langword="null"/>.</param>
 public record SchemaTrackingExportJobListItem(
@@ -28,6 +29,7 @@ public record SchemaTrackingExportJobListItem(
     bool UpdatedDone,
     bool InsertedDone,
     bool DeletedDone,
+    bool TargetPresenceDone,
     string? Error,
     SchemaTrackingExportJobListItemResult? Result = null
 );

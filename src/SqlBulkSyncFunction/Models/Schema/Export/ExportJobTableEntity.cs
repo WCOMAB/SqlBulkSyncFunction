@@ -69,6 +69,11 @@ public sealed class ExportJobTableEntity : ITableEntity
     public bool DeletedDone { get; set; }
 
     /// <summary>
+    /// Whether the combined target-presence segment (<c>existing.zip</c> and <c>missing.zip</c>) finished successfully.
+    /// </summary>
+    public bool TargetPresenceDone { get; set; }
+
+    /// <summary>
     /// UTC time when the job was accepted.
     /// </summary>
     public DateTimeOffset CreatedUtc { get; set; }

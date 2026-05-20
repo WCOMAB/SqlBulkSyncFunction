@@ -23,6 +23,7 @@ public static class ExportJobTableMapper
             UpdatedDone: entity.UpdatedDone,
             InsertedDone: entity.InsertedDone,
             DeletedDone: entity.DeletedDone,
+            TargetPresenceDone: entity.TargetPresenceDone,
             Error: entity.Error,
             Result: result
         );

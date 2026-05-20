@@ -12,11 +12,15 @@ namespace SqlBulkSyncFunction.Models.Schema.Export;
 /// <param name="UpdatedZipSasUri">Read SAS URI for <c>updated.zip</c>.</param>
 /// <param name="InsertedZipSasUri">Read SAS URI for <c>inserted.zip</c>.</param>
 /// <param name="DeletedZipSasUri">Read SAS URI for <c>deleted.zip</c>.</param>
+/// <param name="ExistingZipSasUri">Read SAS URI for <c>existing.zip</c>; null when absent from stored result.</param>
+/// <param name="MissingZipSasUri">Read SAS URI for <c>missing.zip</c>; null when absent from stored result.</param>
 public record SchemaTrackingExportJobListItemResult(
     DateTimeOffset SasExpires,
     Uri UpdatedZipSasUri,
     Uri InsertedZipSasUri,
-    Uri DeletedZipSasUri
+    Uri DeletedZipSasUri,
+    Uri? ExistingZipSasUri,
+    Uri? MissingZipSasUri
 )
 {
     /// <summary>
@@ -31,6 +35,8 @@ public record SchemaTrackingExportJobListItemResult(
                 jobResult.SasExpires,
                 jobResult.UpdatedZipSasUri,
                 jobResult.InsertedZipSasUri,
-                jobResult.DeletedZipSasUri
+                jobResult.DeletedZipSasUri,
+                jobResult.ExistingZipSasUri,
+                jobResult.MissingZipSasUri
             );
 }

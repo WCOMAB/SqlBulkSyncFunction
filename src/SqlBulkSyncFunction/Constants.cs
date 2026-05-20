@@ -71,6 +71,21 @@ public static class Constants
         /// Deleted segment only: correlation id when segment processing throws.
         /// </summary>
         public const string ExportJobDeletedError = ExportJobDeleted + "-error";
+
+        /// <summary>
+        /// Queue for the worker that writes <c>existing.zip</c> and <c>missing.zip</c> (target row present vs absent for each tracked change).
+        /// </summary>
+        public const string ExportJobTargetPresence = "exportjob-target-presence";
+
+        /// <summary>
+        /// Signaled when both target-presence ZIPs have been written for an export job.
+        /// </summary>
+        public const string ExportJobTargetPresenceDone = ExportJobTargetPresence + "-done";
+
+        /// <summary>
+        /// Target-presence segment: correlation id when processing throws.
+        /// </summary>
+        public const string ExportJobTargetPresenceError = ExportJobTargetPresence + "-error";
     }
 
     /// <summary>

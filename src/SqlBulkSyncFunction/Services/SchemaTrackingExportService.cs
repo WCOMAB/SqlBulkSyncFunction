@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
@@ -16,6 +17,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SqlBulkSyncFunction.Helpers;
 using SqlBulkSyncFunction.Models.Job;
+using SqlBulkSyncFunction.Models.Schema;
 using SqlBulkSyncFunction.Models.Schema.Export;
 
 namespace SqlBulkSyncFunction.Services;
@@ -40,6 +42,15 @@ public sealed class SchemaTrackingExportService(
         PropertyNameCaseInsensitive = true,
         WriteIndented = false
     };
+
+    private static readonly JsonSerializerOptions TargetPresenceRowJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+        WriteIndented = false
+    };
+
+    private const int TargetPresenceBatchSize = 200;
 
     private readonly BlobContainerClient _exportContainer = GetOrCreateBlobContainer(blobServiceClient, Constants.Containers.Export);
     private readonly TableClient _exportJobsTable = GetOrCreateTable(tableServiceClient, Constants.Tables.ExportJobs);
@@ -119,7 +130,8 @@ public sealed class SchemaTrackingExportService(
             CreatedUtc = utcNow,
             UpdatedDone = false,
             InsertedDone = false,
-            DeletedDone = false
+            DeletedDone = false,
+            TargetPresenceDone = false
         };
 
         _ = await _exportJobsTable.UpsertEntityAsync(entity, TableUpdateMode.Replace, cancellationToken).ConfigureAwait(false);
@@ -211,6 +223,7 @@ public sealed class SchemaTrackingExportService(
             UpdatedDone: false,
             InsertedDone: false,
             DeletedDone: false,
+            TargetPresenceDone: false,
             Error: null,
             Result: listResult
         );
@@ -245,7 +258,7 @@ public sealed class SchemaTrackingExportService(
     }
 
     /// <summary>
-    /// Dispatches a main-queue message to the three segment queues.
+    /// Dispatches a main-queue message to the segment queues (updated, inserted, deleted, target presence).
     /// </summary>
     public async Task DispatchExportJobAsync(string correlationId, CancellationToken cancellationToken)
     {
@@ -269,11 +282,13 @@ public sealed class SchemaTrackingExportService(
         var qUpdated = GetOrCreateQueue(Constants.Queues.ExportJobUpdated);
         var qInserted = GetOrCreateQueue(Constants.Queues.ExportJobInserted);
         var qDeleted = GetOrCreateQueue(Constants.Queues.ExportJobDeleted);
+        var qTargetPresence = GetOrCreateQueue(Constants.Queues.ExportJobTargetPresence);
 
         // Do not pass visibilityTimeout on enqueue: non-zero values hide the message from Dequeue/Peek until the timeout elapses (scheduled/delayed work), not a processing lease.
         _ = await qUpdated.SendMessageAsync(normalized, cancellationToken: cancellationToken).ConfigureAwait(false);
         _ = await qInserted.SendMessageAsync(normalized, cancellationToken: cancellationToken).ConfigureAwait(false);
         _ = await qDeleted.SendMessageAsync(normalized, cancellationToken: cancellationToken).ConfigureAwait(false);
+        _ = await qTargetPresence.SendMessageAsync(normalized, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -336,31 +351,46 @@ public sealed class SchemaTrackingExportService(
             var targetVersion = targetConn.GetTargetVersion(table.Target);
             var fromVersion = targetVersion.CurrentVersion < 0 ? 0L : targetVersion.CurrentVersion;
 
-            var sql = SqlStatementExtensions.GetChangeTrackingExportSegmentSelectStatement(table.Source, columns, segment);
-
-            await using var cmd = new SqlCommand(sql, sourceConn)
+            if (segment == SchemaTrackingExportSegment.TargetPresence)
             {
-                CommandTimeout = 3600
-            };
-            _ = cmd.Parameters.Add(new SqlParameter("@FromVersion", SqlDbType.BigInt) { Value = fromVersion });
-
-            await using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken)
-                .ConfigureAwait(false);
-
-            var (zipPath, jsonPath) = GetZipRelativePath(segment);
-            var zipBlob = _exportContainer.GetBlobClient($"{normalized}/{zipPath}");
-            await using var uploadStream = await zipBlob.OpenWriteAsync(
-                    true,
-                    new BlobOpenWriteOptions
-                    {
-                        HttpHeaders = new BlobHttpHeaders { ContentType = Constants.BlobContentTypes.Zip }
-                    },
+                await ProcessTargetPresenceSegmentAsync(
+                    normalized,
+                    table,
+                    columns,
+                    sourceConn,
+                    targetConn,
+                    fromVersion,
                     cancellationToken
-                )
-                .ConfigureAwait(false);
+                ).ConfigureAwait(false);
+            }
+            else
+            {
+                var sql = SqlStatementExtensions.GetChangeTrackingExportSegmentSelectStatement(table.Source, columns, segment);
 
-            await SchemaTrackingExportStreamingZip.WriteReaderToZipAsync(reader, uploadStream, jsonPath, cancellationToken)
-                .ConfigureAwait(false);
+                await using var cmd = new SqlCommand(sql, sourceConn)
+                {
+                    CommandTimeout = 3600
+                };
+                _ = cmd.Parameters.Add(new SqlParameter("@FromVersion", SqlDbType.BigInt) { Value = fromVersion });
+
+                await using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken)
+                    .ConfigureAwait(false);
+
+                var (zipPath, jsonPath) = GetZipRelativePath(segment);
+                var zipBlob = _exportContainer.GetBlobClient($"{normalized}/{zipPath}");
+                await using var uploadStream = await zipBlob.OpenWriteAsync(
+                        true,
+                        new BlobOpenWriteOptions
+                        {
+                            HttpHeaders = new BlobHttpHeaders { ContentType = Constants.BlobContentTypes.Zip }
+                        },
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false);
+
+                await SchemaTrackingExportStreamingZip.WriteReaderToZipAsync(reader, uploadStream, jsonPath, cancellationToken)
+                    .ConfigureAwait(false);
+            }
 
             var doneQueueName = GetDoneQueueName(segment);
             var doneQueue = GetOrCreateQueue(doneQueueName);
@@ -454,7 +484,7 @@ public sealed class SchemaTrackingExportService(
         CancellationToken cancellationToken
         )
     {
-        if (!entity.UpdatedDone || !entity.InsertedDone || !entity.DeletedDone)
+        if (!entity.UpdatedDone || !entity.InsertedDone || !entity.DeletedDone || !entity.TargetPresenceDone)
         {
             return;
         }
@@ -470,10 +500,14 @@ public sealed class SchemaTrackingExportService(
         var updatedZip = _exportContainer.GetBlobClient($"{correlationId}/response/updated.zip");
         var insertedZip = _exportContainer.GetBlobClient($"{correlationId}/response/inserted.zip");
         var deletedZip = _exportContainer.GetBlobClient($"{correlationId}/response/deleted.zip");
+        var existingZip = _exportContainer.GetBlobClient($"{correlationId}/response/existing.zip");
+        var missingZip = _exportContainer.GetBlobClient($"{correlationId}/response/missing.zip");
 
         if (!await updatedZip.ExistsAsync(cancellationToken).ConfigureAwait(false) ||
             !await insertedZip.ExistsAsync(cancellationToken).ConfigureAwait(false) ||
-            !await deletedZip.ExistsAsync(cancellationToken).ConfigureAwait(false))
+            !await deletedZip.ExistsAsync(cancellationToken).ConfigureAwait(false) ||
+            !await existingZip.ExistsAsync(cancellationToken).ConfigureAwait(false) ||
+            !await missingZip.ExistsAsync(cancellationToken).ConfigureAwait(false))
         {
             logger.LogWarning("Finalize: missing one or more ZIP blobs for {CorrelationId}", correlationId);
             return;
@@ -483,6 +517,8 @@ public sealed class SchemaTrackingExportService(
         var updatedUri = GenerateReadSasUri(updatedZip, sasExpires);
         var insertedUri = GenerateReadSasUri(insertedZip, sasExpires);
         var deletedUri = GenerateReadSasUri(deletedZip, sasExpires);
+        var existingUri = GenerateReadSasUri(existingZip, sasExpires);
+        var missingUri = GenerateReadSasUri(missingZip, sasExpires);
 
         var completed = DateTimeOffset.UtcNow;
         var result = new SchemaTrackingExportJobResult(
@@ -499,7 +535,9 @@ public sealed class SchemaTrackingExportService(
             SasExpires: sasExpires,
             UpdatedZipSasUri: updatedUri,
             InsertedZipSasUri: insertedUri,
-            DeletedZipSasUri: deletedUri
+            DeletedZipSasUri: deletedUri,
+            ExistingZipSasUri: existingUri,
+            MissingZipSasUri: missingUri
         );
 
         try
@@ -551,6 +589,7 @@ public sealed class SchemaTrackingExportService(
             entity.UpdatedDone = true;
             entity.InsertedDone = true;
             entity.DeletedDone = true;
+            entity.TargetPresenceDone = true;
 
             try
             {
@@ -657,6 +696,7 @@ public sealed class SchemaTrackingExportService(
             SchemaTrackingExportSegment.Updated => entity.UpdatedDone,
             SchemaTrackingExportSegment.Inserted => entity.InsertedDone,
             SchemaTrackingExportSegment.Deleted => entity.DeletedDone,
+            SchemaTrackingExportSegment.TargetPresence => entity.TargetPresenceDone,
             _ => false
         };
 
@@ -673,6 +713,9 @@ public sealed class SchemaTrackingExportService(
             case SchemaTrackingExportSegment.Deleted:
                 entity.DeletedDone = value;
                 break;
+            case SchemaTrackingExportSegment.TargetPresence:
+                entity.TargetPresenceDone = value;
+                break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(segment));
         }
@@ -684,6 +727,7 @@ public sealed class SchemaTrackingExportService(
             SchemaTrackingExportSegment.Updated => Constants.Queues.ExportJobUpdatedDone,
             SchemaTrackingExportSegment.Inserted => Constants.Queues.ExportJobInsertedDone,
             SchemaTrackingExportSegment.Deleted => Constants.Queues.ExportJobDeletedDone,
+            SchemaTrackingExportSegment.TargetPresence => Constants.Queues.ExportJobTargetPresenceDone,
             _ => throw new ArgumentOutOfRangeException(nameof(segment))
         };
 
@@ -698,8 +742,397 @@ public sealed class SchemaTrackingExportService(
             SchemaTrackingExportSegment.Updated => ("response/updated.zip", "updated.json"),
             SchemaTrackingExportSegment.Inserted => ("response/inserted.zip", "inserted.json"),
             SchemaTrackingExportSegment.Deleted => ("response/deleted.zip", "deleted.json"),
+            SchemaTrackingExportSegment.TargetPresence => throw new InvalidOperationException("Target presence uses paired ZIP writers, not a single segment path."),
             _ => throw new ArgumentOutOfRangeException(nameof(segment))
         };
+
+    /// <summary>
+    /// Streams all change rows (I/U/D + PK) from the source, resolves target rows in batches on the target connection, and writes <c>existing.zip</c> / <c>missing.zip</c>.
+    /// </summary>
+    private async Task ProcessTargetPresenceSegmentAsync(
+        string normalized,
+        SyncJobTable table,
+        Column[] sourceColumns,
+        SqlConnection sourceConn,
+        SqlConnection targetConn,
+        long fromVersion,
+        CancellationToken cancellationToken
+        )
+    {
+        var pkColumns = sourceColumns.Where(static c => c.IsPrimary).ToArray();
+        if (pkColumns.Length == 0)
+        {
+            throw new InvalidOperationException("Target presence export requires at least one primary key column.");
+        }
+
+        var targetColumns = targetConn.GetColumns(table.Target);
+        var sql = SqlStatementExtensions.GetChangeTrackingExportChangeOperationAndPrimaryKeysSelectStatement(
+            table.Source,
+            pkColumns
+        );
+
+        await using var ctCmd = new SqlCommand(sql, sourceConn) { CommandTimeout = 3600 };
+        _ = ctCmd.Parameters.Add(new SqlParameter("@FromVersion", SqlDbType.BigInt) { Value = fromVersion });
+
+        await using var ctReader = await ctCmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken)
+            .ConfigureAwait(false);
+
+        var existingBlob = _exportContainer.GetBlobClient($"{normalized}/response/existing.zip");
+        var missingBlob = _exportContainer.GetBlobClient($"{normalized}/response/missing.zip");
+        await using var existingUpload = await existingBlob.OpenWriteAsync(
+                true,
+                new BlobOpenWriteOptions { HttpHeaders = new BlobHttpHeaders { ContentType = Constants.BlobContentTypes.Zip } },
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        await using var missingUpload = await missingBlob.OpenWriteAsync(
+                true,
+                new BlobOpenWriteOptions { HttpHeaders = new BlobHttpHeaders { ContentType = Constants.BlobContentTypes.Zip } },
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+
+        await using var zipWriter = new SchemaTrackingExportTargetPresenceZipWriter(
+            existingUpload,
+            missingUpload,
+            TargetPresenceRowJsonOptions
+        );
+
+        var changeOpOrdinal = ctReader.GetOrdinal("changeOperation");
+        var pkOrdinals = new int[pkColumns.Length];
+        for (var i = 0; i < pkColumns.Length; i++)
+        {
+            pkOrdinals[i] = ctReader.GetOrdinal(FormattableString.Invariant($"pk_c{i}"));
+        }
+
+        var batch = new List<(string Op, Dictionary<string, object?> Pk)>(TargetPresenceBatchSize);
+
+        async Task FlushBatchAsync()
+        {
+            if (batch.Count == 0)
+            {
+                return;
+            }
+
+            await WriteTargetPresenceBatchFromJoinedQueryAsync(
+                targetConn,
+                table.Target,
+                targetColumns,
+                pkColumns,
+                batch,
+                zipWriter,
+                cancellationToken
+            ).ConfigureAwait(false);
+
+            batch.Clear();
+        }
+
+        while (await ctReader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            var op = ctReader.GetString(changeOpOrdinal);
+            if (op.Length != 1)
+            {
+                op = op.Trim();
+            }
+
+            var pk = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+            for (var i = 0; i < pkColumns.Length; i++)
+            {
+                var ord = pkOrdinals[i];
+                pk[pkColumns[i].Name] = ctReader.IsDBNull(ord) ? null : ctReader.GetValue(ord);
+            }
+
+            batch.Add((op, pk));
+            if (batch.Count >= TargetPresenceBatchSize)
+            {
+                await FlushBatchAsync().ConfigureAwait(false);
+            }
+        }
+
+        await FlushBatchAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Stages <c>changeOperation</c> and PKs in a session temp table, then runs one batch returning two result sets:
+    /// existing rows (<c>INNER JOIN</c> target) and missing rows (<c>LEFT OUTER JOIN</c> with <c>WHERE t.[firstPk] IS NULL</c>).
+    /// </summary>
+    private static async Task WriteTargetPresenceBatchFromJoinedQueryAsync(
+        SqlConnection targetConn,
+        string targetTableName,
+        Column[] targetColumns,
+        Column[] pkColumns,
+        IReadOnlyList<(string Op, Dictionary<string, object?> Pk)> batch,
+        SchemaTrackingExportTargetPresenceZipWriter zipWriter,
+        CancellationToken cancellationToken
+        )
+    {
+        if (batch.Count == 0)
+        {
+            return;
+        }
+
+        const string tempTableName = "#ExportPkBatch";
+
+        var joinClause = string.Join(
+            " AND ",
+            pkColumns.Select(column => string.Concat("t.", column.QuoteName, " = p.", column.QuoteName))
+        );
+
+        var firstPkOnTarget = pkColumns[0];
+
+        var createPkCols = string.Join(
+            ",\n        ",
+            pkColumns.Select(
+                pkCol =>
+                {
+                    var tc = ResolvePkColumnForTarget(pkCol, targetColumns);
+                    var nullability = tc.IsNullable ? "NULL" : "NOT NULL";
+                    return string.Concat(tc.QuoteName, " ", tc.Type, " ", nullability);
+                }
+            )
+        );
+
+        var createSql = FormattableString.Invariant(
+            $"""
+            CREATE TABLE {tempTableName} (
+                [changeOperation] NCHAR(1) NOT NULL,
+                {createPkCols}
+            );
+            """);
+
+        var targetSelectList = string.Join(
+            ",\n        ",
+            targetColumns.Select(column => string.Concat("t.", column.QuoteName, " AS ", column.QuoteName))
+        );
+
+        var existingSql = FormattableString.Invariant(
+            $"""
+            SELECT  p.[changeOperation],
+                    {targetSelectList}
+                FROM {tempTableName} AS p
+                    INNER JOIN {targetTableName} AS t ON {joinClause}
+            """);
+
+        var pkSelectList = string.Join(
+            ",\n        ",
+            pkColumns.Select(column => string.Concat("p.", column.QuoteName, " AS ", column.QuoteName))
+        );
+
+        var missingSql = FormattableString.Invariant(
+            $"""
+            SELECT  p.[changeOperation],
+                    {pkSelectList}
+                FROM {tempTableName} AS p
+                    LEFT OUTER JOIN {targetTableName} AS t ON {joinClause}
+                WHERE t.{firstPkOnTarget.QuoteName} IS NULL
+            """);
+
+        var queryBatch = FormattableString.Invariant(
+            $"""
+            {existingSql}
+            ;
+            {missingSql}
+            """);
+
+        try
+        {
+            await using (var createCmd = new SqlCommand(createSql, targetConn) { CommandTimeout = 3600 })
+            {
+                _ = await createCmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            using var dataTable = BuildTargetPresenceStagingDataTable(pkColumns, targetColumns, batch);
+            using var bulk = new SqlBulkCopy(targetConn, SqlBulkCopyOptions.Default, externalTransaction: null)
+            {
+                DestinationTableName = tempTableName,
+                BulkCopyTimeout = 3600
+            };
+            foreach (DataColumn col in dataTable.Columns)
+            {
+                bulk.ColumnMappings.Add(col.ColumnName, col.ColumnName);
+            }
+
+            await bulk.WriteToServerAsync(dataTable, cancellationToken).ConfigureAwait(false);
+
+            await using var readCmd = new SqlCommand(queryBatch, targetConn) { CommandTimeout = 3600 };
+            await using var reader = await readCmd.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken)
+                .ConfigureAwait(false);
+
+            var changeOpOrdinal = reader.GetOrdinal("changeOperation");
+            var targetOrdinals = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var col in targetColumns)
+            {
+                targetOrdinals[col.Name] = reader.GetOrdinal(col.Name);
+            }
+
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                var op = reader.GetString(changeOpOrdinal);
+                if (op.Length != 1)
+                {
+                    op = op.Trim();
+                }
+
+                var targetRow = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+                foreach (var col in targetColumns)
+                {
+                    var ord = targetOrdinals[col.Name];
+                    targetRow[col.Name] = reader.IsDBNull(ord) ? null : reader.GetValue(ord);
+                }
+
+                var pkRow = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+                foreach (var col in pkColumns)
+                {
+                    _ = targetRow.TryGetValue(col.Name, out var v);
+                    pkRow[col.Name] = v;
+                }
+
+                await zipWriter.WriteExistingRowAsync(op, pkRow, targetRow, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (!await reader.NextResultAsync(cancellationToken).ConfigureAwait(false))
+            {
+                throw new InvalidOperationException("Expected second result set (missing rows) from target-presence batch query.");
+            }
+
+            var missingChangeOpOrdinal = reader.GetOrdinal("changeOperation");
+            var missingPkOrdinals = new int[pkColumns.Length];
+            for (var i = 0; i < pkColumns.Length; i++)
+            {
+                missingPkOrdinals[i] = reader.GetOrdinal(pkColumns[i].Name);
+            }
+
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                var op = reader.GetString(missingChangeOpOrdinal);
+                if (op.Length != 1)
+                {
+                    op = op.Trim();
+                }
+
+                var pkRow = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+                for (var i = 0; i < pkColumns.Length; i++)
+                {
+                    var ord = missingPkOrdinals[i];
+                    pkRow[pkColumns[i].Name] = reader.IsDBNull(ord) ? null : reader.GetValue(ord);
+                }
+
+                await zipWriter.WriteMissingRowAsync(op, pkRow, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            try
+            {
+                await using var dropCmd = new SqlCommand(
+                    FormattableString.Invariant($"DROP TABLE IF EXISTS {tempTableName};"),
+                    targetConn
+                )
+                {
+                    CommandTimeout = 60
+                };
+                _ = await dropCmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (SqlException)
+            {
+                // Best-effort cleanup; connection may already be aborting.
+            }
+        }
+    }
+
+    private static Column ResolvePkColumnForTarget(Column pkColumn, Column[] targetColumns)
+        => targetColumns.FirstOrDefault(
+            t => string.Equals(t.Name, pkColumn.Name, StringComparison.OrdinalIgnoreCase)
+        ) ?? pkColumn;
+
+    private static DataTable BuildTargetPresenceStagingDataTable(
+        Column[] pkColumns,
+        Column[] targetColumns,
+        IReadOnlyList<(string Op, Dictionary<string, object?> Pk)> batch
+        )
+    {
+        var dt = new DataTable();
+        _ = dt.Columns.Add("changeOperation", typeof(string));
+
+        foreach (var pkCol in pkColumns)
+        {
+            var tc = ResolvePkColumnForTarget(pkCol, targetColumns);
+            var clrType = GetClrTypeForSqlType(tc.Type);
+            var dc = dt.Columns.Add(pkCol.Name, clrType);
+            dc.AllowDBNull = tc.IsNullable;
+        }
+
+        foreach (var (op, pkRow) in batch)
+        {
+            var dr = dt.NewRow();
+            var opTrimmed = string.IsNullOrWhiteSpace(op) ? "?" : op.Trim();
+            dr["changeOperation"] = opTrimmed.Length > 0 ? opTrimmed[..1] : "?";
+            foreach (var pkCol in pkColumns)
+            {
+                _ = pkRow.TryGetValue(pkCol.Name, out var raw);
+                dr[pkCol.Name] = NormalizeValueForDataColumn(raw, dt.Columns[pkCol.Name]!.DataType);
+            }
+
+            dt.Rows.Add(dr);
+        }
+
+        return dt;
+    }
+
+    private static object NormalizeValueForDataColumn(object? raw, Type columnClrType)
+    {
+        if (raw is null or DBNull)
+        {
+            return DBNull.Value;
+        }
+
+        if (columnClrType.IsInstanceOfType(raw))
+        {
+            return raw;
+        }
+
+        try
+        {
+            return Convert.ChangeType(raw, columnClrType, CultureInfo.InvariantCulture);
+        }
+        catch (InvalidCastException)
+        {
+            return raw;
+        }
+        catch (FormatException)
+        {
+            return raw;
+        }
+        catch (OverflowException)
+        {
+            return raw;
+        }
+    }
+
+    private static Type GetClrTypeForSqlType(string sqlType)
+    {
+        var trimmed = sqlType.Trim();
+        var paren = trimmed.IndexOf('(', StringComparison.Ordinal);
+        var baseName = (paren >= 0 ? trimmed[..paren] : trimmed).Trim().ToLowerInvariant();
+        return baseName switch
+        {
+            "bigint" => typeof(long),
+            "int" => typeof(int),
+            "smallint" => typeof(short),
+            "tinyint" => typeof(byte),
+            "bit" => typeof(bool),
+            "uniqueidentifier" => typeof(Guid),
+            "float" => typeof(double),
+            "real" => typeof(float),
+            "decimal" or "numeric" => typeof(decimal),
+            "money" or "smallmoney" => typeof(decimal),
+            "date" or "datetime" or "datetime2" or "smalldatetime" => typeof(DateTime),
+            "datetimeoffset" => typeof(DateTimeOffset),
+            "time" => typeof(TimeSpan),
+            "sql_variant" => typeof(object),
+            _ => typeof(string)
+        };
+    }
 
     private async Task<SchemaTrackingExportJob?> ReadJobBlobAsync(string correlationId, CancellationToken cancellationToken)
     {

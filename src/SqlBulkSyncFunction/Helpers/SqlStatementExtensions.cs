@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using SqlBulkSyncFunction.Models.Schema;
 using SqlBulkSyncFunction.Models.Schema.Export;
@@ -83,6 +84,37 @@ public static class SqlStatementExtensions
         return $"""
             SELECT  ct.SYS_CHANGE_OPERATION AS Operation,
                     {string.Join(",\r\n        ", primaryColumns)}
+                FROM CHANGETABLE(CHANGES {sourceTableName}, @FromVersion) AS ct
+            """;
+    }
+
+    /// <summary>
+    /// Builds a query that returns every change in the version range with <c>SYS_CHANGE_OPERATION</c> as <c>changeOperation</c> (<c>I</c>/<c>U</c>/<c>D</c>)
+    /// and primary key columns aliased as <c>pk_c0</c>..<c>pk_cN</c> (same order as <paramref name="primaryKeyColumns"/>).
+    /// </summary>
+    /// <param name="sourceTableName">Fully qualified source table name.</param>
+    /// <param name="primaryKeyColumns">Primary key columns in a stable order.</param>
+    /// <returns>Parameterized SQL using <c>@FromVersion</c>.</returns>
+    public static string GetChangeTrackingExportChangeOperationAndPrimaryKeysSelectStatement(
+        string sourceTableName,
+        Column[] primaryKeyColumns
+        )
+    {
+        if (primaryKeyColumns.Length == 0)
+        {
+            throw new InvalidOperationException($"Missing primary key columns for table {sourceTableName}.");
+        }
+
+        var pkAliases = string.Join(
+            ",\r\n        ",
+            primaryKeyColumns.Select(
+                (column, index) => string.Concat("ct.", column.QuoteName, " AS [pk_c", index.ToString(CultureInfo.InvariantCulture), "]")
+            )
+        );
+
+        return $"""
+            SELECT  CAST(ct.SYS_CHANGE_OPERATION AS NVARCHAR(1)) AS [changeOperation],
+                    {pkAliases}
                 FROM CHANGETABLE(CHANGES {sourceTableName}, @FromVersion) AS ct
             """;
     }

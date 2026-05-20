@@ -19,7 +19,7 @@ public sealed class ProcessExportJobQueues(
     )
 {
     /// <summary>
-    /// Fans out a new export job to the three segment queues.
+    /// Fans out a new export job to the segment queues (updated, inserted, deleted, target presence).
     /// </summary>
     [Function(nameof(ProcessExportJobQueues) + nameof(DispatchExportJob))]
     public async Task DispatchExportJob(
@@ -65,6 +65,15 @@ public sealed class ProcessExportJobQueues(
         ) => ProcessSegmentAsync(correlationId, SchemaTrackingExportSegment.Deleted, cancellationToken);
 
     /// <summary>
+    /// Builds <c>existing.zip</c> and <c>missing.zip</c> (target row present vs absent for each tracked change).
+    /// </summary>
+    [Function(nameof(ProcessExportJobQueues) + nameof(ProcessExportTargetPresence))]
+    public Task ProcessExportTargetPresence(
+        [QueueTrigger(Constants.Queues.ExportJobTargetPresence)] string correlationId,
+        CancellationToken cancellationToken
+        ) => ProcessSegmentAsync(correlationId, SchemaTrackingExportSegment.TargetPresence, cancellationToken);
+
+    /// <summary>
     /// Records completion of the updated segment and finalizes the job when all segments are done.
     /// </summary>
     [Function(nameof(ProcessExportJobQueues) + nameof(OnExportUpdatedDone))]
@@ -90,6 +99,15 @@ public sealed class ProcessExportJobQueues(
         [QueueTrigger(Constants.Queues.ExportJobDeletedDone)] string correlationId,
         CancellationToken cancellationToken
         ) => OnSegmentDoneAsync(correlationId, SchemaTrackingExportSegment.Deleted, cancellationToken);
+
+    /// <summary>
+    /// Records completion of the target-presence segment and finalizes the job when all segments are done.
+    /// </summary>
+    [Function(nameof(ProcessExportJobQueues) + nameof(OnExportTargetPresenceDone))]
+    public Task OnExportTargetPresenceDone(
+        [QueueTrigger(Constants.Queues.ExportJobTargetPresenceDone)] string correlationId,
+        CancellationToken cancellationToken
+        ) => OnSegmentDoneAsync(correlationId, SchemaTrackingExportSegment.TargetPresence, cancellationToken);
 
     private async Task ProcessSegmentAsync(
         string correlationId,
@@ -147,6 +165,7 @@ public sealed class ProcessExportJobQueues(
             SchemaTrackingExportSegment.Updated => Constants.Queues.ExportJobUpdatedError,
             SchemaTrackingExportSegment.Inserted => Constants.Queues.ExportJobInsertedError,
             SchemaTrackingExportSegment.Deleted => Constants.Queues.ExportJobDeletedError,
+            SchemaTrackingExportSegment.TargetPresence => Constants.Queues.ExportJobTargetPresenceError,
             _ => throw new ArgumentOutOfRangeException(nameof(segment), segment, null)
         };
 
