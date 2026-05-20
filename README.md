@@ -63,7 +63,7 @@ The function is configured through Azure App Settings / Environment variables, y
 
 ## Schema tracking export
 
-Asynchronous export of change-tracking data (full rows for inserts/updates, primary keys for deletes) uses the same storage account as `AzureWebJobsStorage`: blob container `export`, table `exportjobs`. 
+Asynchronous export of change-tracking data (full rows for inserts/updates, primary keys for deletes) uses the same storage account as `AzureWebJobsStorage`: blob container `export`, table `exportjobs`. Completed jobs also include `response/existing.zip` and `response/missing.zip`: each tracked change (I/U/D + primary key) is classified by whether that key exists on the **target** database—existing rows include full **target** column values; missing rows list only operation and primary keys. `result.json` exposes SAS URIs for those ZIPs (`existingZipSasUri`, `missingZipSasUri`) alongside the three segment ZIPs.
 
 HTTP routes (Function authorization level):
 

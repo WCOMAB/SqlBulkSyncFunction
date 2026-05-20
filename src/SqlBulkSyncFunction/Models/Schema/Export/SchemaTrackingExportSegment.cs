@@ -20,5 +20,10 @@ public enum SchemaTrackingExportSegment
     /// <summary>
     /// Rows with <c>SYS_CHANGE_OPERATION = N'D'</c> (primary key columns only).
     /// </summary>
-    Deleted = 2
+    Deleted = 2,
+
+    /// <summary>
+    /// Single worker pass: writes <c>existing.zip</c> and <c>missing.zip</c> by comparing each change (I/U/D + PK) to target row existence (cross-connection safe).
+    /// </summary>
+    TargetPresence = 3
 }

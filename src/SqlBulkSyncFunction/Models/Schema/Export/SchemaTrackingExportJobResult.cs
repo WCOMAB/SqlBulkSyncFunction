@@ -21,6 +21,8 @@ namespace SqlBulkSyncFunction.Models.Schema.Export;
 /// <param name="UpdatedZipSasUri">Read SAS URI for <c>updated.zip</c>.</param>
 /// <param name="InsertedZipSasUri">Read SAS URI for <c>inserted.zip</c>.</param>
 /// <param name="DeletedZipSasUri">Read SAS URI for <c>deleted.zip</c>.</param>
+/// <param name="ExistingZipSasUri">Read SAS URI for <c>existing.zip</c> (changes whose PK exists on target, including target column values); null for results written before this feature.</param>
+/// <param name="MissingZipSasUri">Read SAS URI for <c>missing.zip</c> (changes whose PK does not exist on target); null for results written before this feature.</param>
 public record SchemaTrackingExportJobResult(
     string Area,
     string Id,
@@ -35,5 +37,7 @@ public record SchemaTrackingExportJobResult(
     DateTimeOffset SasExpires,
     Uri UpdatedZipSasUri,
     Uri InsertedZipSasUri,
-    Uri DeletedZipSasUri
+    Uri DeletedZipSasUri,
+    Uri? ExistingZipSasUri = null,
+    Uri? MissingZipSasUri = null
 );
