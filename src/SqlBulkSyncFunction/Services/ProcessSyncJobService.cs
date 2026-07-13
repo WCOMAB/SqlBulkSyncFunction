@@ -126,7 +126,7 @@ public partial class ProcessSyncJobService(
 
     private void SeedTable(SqlConnection targetConn, TableSchema tableSchema, SqlConnection sourceConn, object scope)
     {
-        targetConn.TruncateTargetTable(tableSchema, scope, logger);
+        targetConn.ClearTargetTable(tableSchema, scope, logger);
         sourceConn.BulkCopyDataDirect(targetConn, tableSchema, scope, logger);
     }
 

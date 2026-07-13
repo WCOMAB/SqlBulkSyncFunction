@@ -34,7 +34,8 @@ public partial class GetSyncJobConfig
                         Source: value.Value,
                         Target: jobConfig.TargetTables?.TryGetValue(value.Key, out var target) == true && !string.IsNullOrWhiteSpace(target) ? target : value.Value,
                         DisableTargetIdentityInsert: jobConfig.DisableTargetIdentityInsertTables.GetValueOrDefault(value.Key),
-                        DisableConstraintCheck: jobConfig.DisableConstraintCheckTables.GetValueOrDefault(value.Key)
+                        DisableConstraintCheck: jobConfig.DisableConstraintCheckTables.GetValueOrDefault(value.Key),
+                        DeleteInsteadOfTruncate: jobConfig.DeleteInsteadOfTruncateTables.GetValueOrDefault(value.Key)
                     )
                 ) ?? [];
             return new OkObjectResult(

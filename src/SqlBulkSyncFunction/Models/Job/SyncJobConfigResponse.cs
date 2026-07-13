@@ -10,11 +10,13 @@ namespace SqlBulkSyncFunction.Models.Job;
 /// <param name="Target">Target table name.</param>
 /// <param name="DisableTargetIdentityInsert">Whether target identity insert is disabled for this table.</param>
 /// <param name="DisableConstraintCheck">Whether constraint checking is disabled during merge operations for this table.</param>
+/// <param name="DeleteInsteadOfTruncate">Whether DELETE + reseed is used instead of TRUNCATE when clearing target during seed.</param>
 public record SyncJobConfigTableDto(
     [property: JsonPropertyName("source")] string Source,
     [property: JsonPropertyName("target")] string Target,
     [property: JsonPropertyName("disableTargetIdentityInsert")] bool DisableTargetIdentityInsert,
-    [property: JsonPropertyName("disableConstraintCheck")] bool DisableConstraintCheck
+    [property: JsonPropertyName("disableConstraintCheck")] bool DisableConstraintCheck,
+    [property: JsonPropertyName("deleteInsteadOfTruncate")] bool DeleteInsteadOfTruncate
 );
 
 /// <summary>

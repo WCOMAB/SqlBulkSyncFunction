@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using SqlBulkSyncFunction.Models.Schema;
 using SqlBulkSyncFunction.Models.Schema.Export;
 
@@ -513,8 +514,46 @@ public static class SqlStatementExtensions
         return statement;
     }
 
-    public static string GetTruncateTargetTableStatement(this TableSchema tableSchema)
-        => string.Concat("TRUNCATE TABLE ", tableSchema.TargetTableName);
+    /// <summary>
+    /// Builds the SQL batch used to clear the target table during seed operations.
+    /// Uses TRUNCATE when safe; otherwise DELETE with NOCHECK on referencing tables and identity reseed.
+    /// </summary>
+    /// <param name="tableSchema">Target table schema.</param>
+    /// <param name="useDeleteInsteadOfTruncate">When true, use DELETE instead of TRUNCATE.</param>
+    /// <param name="referencingTables">Tables with foreign keys referencing the target.</param>
+    /// <returns>SQL batch to clear the target table.</returns>
+    public static string GetClearTargetTableStatement(
+        this TableSchema tableSchema,
+        bool useDeleteInsteadOfTruncate,
+        string[] referencingTables
+        )
+    {
+        if (!useDeleteInsteadOfTruncate)
+        {
+            return string.Concat("TRUNCATE TABLE ", tableSchema.TargetTableName);
+        }
+
+        var statement = new StringBuilder();
+
+        foreach (var referencingTable in referencingTables)
+        {
+            _ = statement.AppendLine(FormattableString.Invariant($"ALTER TABLE {referencingTable} NOCHECK CONSTRAINT ALL;"));
+        }
+
+        _ = statement.AppendLine(FormattableString.Invariant($"DELETE FROM {tableSchema.TargetTableName};"));
+
+        if (tableSchema.Columns.Any(column => column.IsIdentity))
+        {
+            _ = statement.AppendLine(FormattableString.Invariant($"DBCC CHECKIDENT ('{tableSchema.TargetTableName}', RESEED, 0);"));
+        }
+
+        foreach (var referencingTable in referencingTables)
+        {
+            _ = statement.AppendLine(FormattableString.Invariant($"ALTER TABLE {referencingTable} CHECK CONSTRAINT ALL;"));
+        }
+
+        return statement.ToString();
+    }
 
     public static string GetSyncTableExistStatement(this TableSchema tableSchema)
         =>  $"""

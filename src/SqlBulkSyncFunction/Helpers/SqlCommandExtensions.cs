@@ -242,7 +242,7 @@ public static class SqlCommandExtensions
         logger.LogInformation("{Scope} {Result}", scope, qm.ReadFirst<string>());
     }
 
-    public static void TruncateTargetTable(
+    public static void ClearTargetTable(
         this SqlConnection targetConn,
         TableSchema tableSchema,
         object scope,
@@ -253,12 +253,26 @@ public static class SqlCommandExtensions
         {
             Connection = targetConn,
             CommandType = CommandType.Text,
-            CommandText = tableSchema.TruncateTargetTableStatement,
+            CommandText = tableSchema.ClearTargetTableStatement,
             CommandTimeout = 500000
         };
-        logger.LogInformation("{Scope} Truncating table {TargetTableName}...", scope, tableSchema.TargetTableName);
+
+        if (tableSchema.UseDeleteInsteadOfTruncate)
+        {
+            logger.LogInformation(
+                "{Scope} Clearing table {TargetTableName} using DELETE (referencing tables: {ReferencingTableCount})...",
+                scope,
+                tableSchema.TargetTableName,
+                tableSchema.ReferencingTables.Length
+                );
+        }
+        else
+        {
+            logger.LogInformation("{Scope} Clearing table {TargetTableName} using TRUNCATE...", scope, tableSchema.TargetTableName);
+        }
+
         _ = targetCmd.ExecuteNonQuery();
-        logger.LogInformation("{Scope} Truncated table {TargetTableName}.", scope, tableSchema.TargetTableName);
+        logger.LogInformation("{Scope} Cleared table {TargetTableName}.", scope, tableSchema.TargetTableName);
     }
 
     public static void BulkCopyDataDirect(
