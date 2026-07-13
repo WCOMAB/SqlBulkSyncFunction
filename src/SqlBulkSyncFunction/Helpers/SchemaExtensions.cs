@@ -228,4 +228,23 @@ public static class SchemaExtensions
                         tp.name         <> 'timestamp'
                 """
             )];
+
+    /// <summary>
+    /// Returns fully qualified table names that have foreign keys referencing the specified table.
+    /// </summary>
+    /// <param name="conn">Database connection (typically target).</param>
+    /// <param name="tableName">Fully qualified table name to inspect.</param>
+    /// <returns>Distinct referencing table names.</returns>
+    public static string[] GetReferencingTables(this SqlConnection conn, string tableName)
+        => [.. conn.Query<string>(
+            commandTimeout: 180,
+            param: new { TableName = tableName },
+            sql:
+            """
+            SELECT DISTINCT
+                QUOTENAME(OBJECT_SCHEMA_NAME(fk.parent_object_id)) + '.' + QUOTENAME(OBJECT_NAME(fk.parent_object_id))
+                FROM sys.foreign_keys fk
+                WHERE fk.referenced_object_id = OBJECT_ID(@TableName)
+            """
+        )];
 }

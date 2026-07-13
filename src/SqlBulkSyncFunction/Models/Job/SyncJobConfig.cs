@@ -10,6 +10,7 @@ public record SyncJobConfig
     public Dictionary<string, string> TargetTables { get; init; } = [];
     public Dictionary<string, bool> DisableTargetIdentityInsertTables { get; init; } = [];
     public Dictionary<string, bool> DisableConstraintCheckTables { get; init; } = [];
+    public Dictionary<string, bool> DeleteInsteadOfTruncateTables { get; init; } = [];
     public int? BatchSize { get; init; }
     public string Area { get; init; }
     public bool? Manual { get; init; }
