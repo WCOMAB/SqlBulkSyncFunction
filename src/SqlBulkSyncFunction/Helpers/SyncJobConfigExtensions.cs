@@ -60,6 +60,12 @@ public static class SyncJobConfigExtensions
             StringComparer.OrdinalIgnoreCase
         );
 
+        var reseedTargetIdentityAfterClearTables = job.ReseedTargetIdentityAfterClearTables?.ToLookup(
+            key => key.Key,
+            value => value.Value,
+            StringComparer.OrdinalIgnoreCase
+        );
+
         return [.. job.Tables.Select(
             sourceTable => new SyncJobTable(
                 sourceTable.Key,
@@ -71,7 +77,8 @@ public static class SyncJobConfigExtensions
                 },
                 disableTargetIdentityInsertTables.GetValueOrDefault(sourceTable.Key),
                 disableConstraintCheckTables.GetValueOrDefault(sourceTable.Key),
-                deleteInsteadOfTruncateTables.GetValueOrDefault(sourceTable.Key)
+                deleteInsteadOfTruncateTables.GetValueOrDefault(sourceTable.Key),
+                reseedTargetIdentityAfterClearTables.GetValueOrDefault(sourceTable.Key)
             )
         )];
     }

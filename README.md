@@ -34,7 +34,8 @@ The function is configured through Azure App Settings / Environment variables, y
 | `SyncJobsConfig__Jobs__[key]__Tables__[key]`                             | Fully qualified name of table to sync                                                                                                        | `dbo.MyTable`                                                                |
 | `SyncJobsConfig__Jobs__[key]__DisableTargetIdentityInsertTables__[key]`  | Optional, per table. When `true`, merge does not use `IDENTITY_INSERT` on target (use when target has no identity column but source does).   | `true` or `false`                                                            |
 | `SyncJobsConfig__Jobs__[key]__DisableConstraintCheckTables__[key]`       | Optional, per table. When `true`, disables constraint checking during merge. Useful for tables with foreign key dependencies.                | `true` or `false`                                                            |
-| `SyncJobsConfig__Jobs__[key]__DeleteInsteadOfTruncateTables__[key]`      | Optional, per table. When `true`, forces DELETE + identity reseed instead of TRUNCATE when clearing target during seed. Auto-enabled when incoming FKs are detected. | `true` or `false`                                                            |
+| `SyncJobsConfig__Jobs__[key]__DeleteInsteadOfTruncateTables__[key]`      | Optional, per table. When `true`, forces DELETE instead of TRUNCATE when clearing target during seed. Auto-enabled when incoming FKs are detected. | `true` or `false`                                                            |
+| `SyncJobsConfig__Jobs__[key]__ReseedTargetIdentityAfterClearTables__[key]` | Optional, per table. When `true`, runs `DBCC CHECKIDENT` reseed after clearing the target during seed (only when target has an identity column). | `true` or `false`                                                            |
 
 
 > Note:
@@ -45,7 +46,9 @@ The function is configured through Azure App Settings / Environment variables, y
 >
 > **DisableConstraintCheckTables**: Omit or set to `false` to keep constraints enabled during merge (default). Set to `true` per table when syncing tables with foreign key dependencies that may cause constraint violations due to merge order.
 >
-> **DeleteInsteadOfTruncateTables**: During seed, the target table is cleared before bulk copy. `TRUNCATE` is used by default when the target is not referenced by foreign keys. When the target is referenced by other tables (detected automatically at schema load), or when this flag is `true`, the service uses `DELETE` with `NOCHECK`/`CHECK` on referencing tables and `DBCC CHECKIDENT` reseed when the target has an identity column. Set to `true` to force the delete path (e.g. replication or other TRUNCATE restrictions without FK).
+> **DeleteInsteadOfTruncateTables**: During seed, the target table is cleared before bulk copy. `TRUNCATE` is used by default when the target is not referenced by foreign keys. When the target is referenced by other tables (detected automatically at schema load), or when this flag is `true`, the service uses `DELETE` with `NOCHECK`/`CHECK` on referencing tables. Set to `true` to force the delete path (e.g. replication or other TRUNCATE restrictions without FK).
+>
+> **ReseedTargetIdentityAfterClearTables**: Omit or set to `false` to leave the identity seed unchanged after clear (default). Set to `true` per table to run `DBCC CHECKIDENT` reseed to 0 after delete-based clear when the target has an identity column.
 >
 > Configuration from KeyVault replace `__` with `--` i.e. `SyncJobsConfig--Jobs--MySync--Tables--MyTable`
 
