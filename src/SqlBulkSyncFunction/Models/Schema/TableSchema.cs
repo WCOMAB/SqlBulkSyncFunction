@@ -55,7 +55,7 @@ public record TableSchema
     /// <summary>SQL to create the deleted staging table.</summary>
     public string CreateDeletedSyncTableStatement { get; }
 
-    /// <summary>SQL batch to clear the target table during seed (TRUNCATE or DELETE + reseed).</summary>
+    /// <summary>SQL batch to clear the target table during seed (TRUNCATE or DELETE, optional reseed).</summary>
     public string ClearTargetTableStatement { get; }
 
     /// <summary>SQL to detect whether sync staging tables already exist.</summary>
@@ -76,8 +76,11 @@ public record TableSchema
     /// <summary>Whether constraint checking is disabled during merge.</summary>
     public bool DisableConstraintCheck { get; }
 
-    /// <summary>When true, seed uses DELETE + reseed instead of TRUNCATE.</summary>
+    /// <summary>When true, seed uses DELETE instead of TRUNCATE.</summary>
     public bool UseDeleteInsteadOfTruncate { get; }
+
+    /// <summary>When true, seed runs DBCC CHECKIDENT after clearing the target.</summary>
+    public bool ReseedTargetIdentityAfterClear { get; }
 
     /// <summary>Tables with foreign keys referencing the target (used for seed clear).</summary>
     public string[] ReferencingTables { get; }
@@ -106,6 +109,7 @@ public record TableSchema
         DisableConstraintCheck = table.DisableConstraintCheck;
         ReferencingTables = referencingTables;
         UseDeleteInsteadOfTruncate = useDeleteInsteadOfTruncate;
+        ReseedTargetIdentityAfterClear = table.ReseedTargetIdentityAfterClear;
         SyncNewOrUpdatedTableName = FormattableString.Invariant($"sync.[{bufferName}_{DateTime.UtcNow:yyyyMMdd}_{targetVersion.CurrentVersion:00000000}_NewOrUpdated]");
         SyncDeletedTableName = FormattableString.Invariant($"sync.[{bufferName}_{DateTime.UtcNow:yyyyMMdd}_{targetVersion.CurrentVersion:00000000}_DeletedTable]");
         Columns = columns;

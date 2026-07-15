@@ -516,7 +516,7 @@ public static class SqlStatementExtensions
 
     /// <summary>
     /// Builds the SQL batch used to clear the target table during seed operations.
-    /// Uses TRUNCATE when safe; otherwise DELETE with NOCHECK on referencing tables and identity reseed.
+    /// Uses TRUNCATE when safe; otherwise DELETE with NOCHECK on referencing tables and optional identity reseed.
     /// </summary>
     /// <param name="tableSchema">Target table schema.</param>
     /// <param name="useDeleteInsteadOfTruncate">When true, use DELETE instead of TRUNCATE.</param>
@@ -542,7 +542,7 @@ public static class SqlStatementExtensions
 
         _ = statement.AppendLine(FormattableString.Invariant($"DELETE FROM {tableSchema.TargetTableName};"));
 
-        if (tableSchema.Columns.Any(column => column.IsIdentity))
+        if (tableSchema.ReseedTargetIdentityAfterClear && tableSchema.Columns.Any(column => column.IsIdentity))
         {
             _ = statement.AppendLine(FormattableString.Invariant($"DBCC CHECKIDENT ('{tableSchema.TargetTableName}', RESEED, 0);"));
         }
