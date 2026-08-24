@@ -84,14 +84,15 @@ public partial class ProcessSyncJobService(
                         {
                             LogBeginTableSchemaScope(schedule, id, area, tableSchema.Scope);
 
-                            if (syncJob.Seed)
-                            {
-                                SeedTable(targetConn, tableSchema, sourceConn, scope);
-                            }
-                            else if (tableSchema.SourceVersion == null)
+                            if (tableSchema.SourceVersion is null)
                             {
                                 LogUnknownSourceVersion(schedule, id, area, tableSchema.Scope);
                                 return;
+                            }
+
+                            if (syncJob.Seed)
+                            {
+                                SeedTable(targetConn, tableSchema, sourceConn, scope);
                             }
                             else if (tableSchema.SourceVersion.CurrentVersion.Equals(tableSchema.TargetVersion.CurrentVersion))
                             {

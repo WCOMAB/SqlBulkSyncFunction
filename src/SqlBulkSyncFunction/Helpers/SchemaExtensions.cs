@@ -57,6 +57,13 @@ public static class SchemaExtensions
         TableSchema tableSchema
         )
     {
+        if (tableSchema.SourceVersion is null)
+        {
+            throw new InvalidOperationException(
+                $"Cannot persist version state for {tableSchema.TargetTableName}: source version is unknown (table not in change_tracking_tables)."
+                );
+        }
+
         var syncedTableVersion = tableSchema.SourceVersion with
         {
             TableName = tableSchema.TargetTableName
@@ -107,7 +114,8 @@ public static class SchemaExtensions
                         inserted.Queried;
                 """
             )
-            .SingleOrDefault();
+            .SingleOrDefault()
+            ?? throw new Exception($"Failed to persist {syncedTableVersion} (MERGE returned no row)");
 
         if (persistedTableVersion != syncedTableVersion with { Updated = persistedTableVersion.Updated })
         {
