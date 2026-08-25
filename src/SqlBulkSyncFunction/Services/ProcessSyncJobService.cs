@@ -67,7 +67,8 @@ public partial class ProcessSyncJobService(
                         targetConn,
                         table,
                         syncJob.BatchSize,
-                        globalChangeTracking
+                        globalChangeTracking,
+                        syncJob.UseSnapshotIsolationSeed
                         )
                 ).ToArray();
             schemaStopWatch.Stop();

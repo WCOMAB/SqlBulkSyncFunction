@@ -455,14 +455,15 @@ public static class SqlStatementExtensions
         => string.Format(
             """
             SELECT  {0}
-                FROM {1} WITH(NOLOCK)
-                {2}
+                FROM {1}{2}
+                {3}
             """,
             string.Join(
                 ",\r\n        ",
                 tableSchema.Columns.Select(column => column.QuoteName)
             ),
             tableSchema.SourceTableName,
+            tableSchema.UseSnapshotIsolationSeed ? string.Empty : " WITH(NOLOCK)",
             tableSchema.Columns.Any(column => column.IsPrimary && column.IsIdentity)
                 ? string.Concat(
                     "ORDER BY ",

@@ -29,6 +29,7 @@ public static class SyncJobConfigExtensions
                 TargetDbAccessToken: TryGetToken(job.Target, tokenCache),
                 Tables: job.ToSyncJobTables(),
                 BatchSize: job.BatchSize,
+                UseSnapshotIsolationSeed: job.UseSnapshotIsolationSeed,
                 Timestamp: timestamp,
                 Expires: expires,
                 Seed: seed

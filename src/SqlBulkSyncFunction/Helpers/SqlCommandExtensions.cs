@@ -283,12 +283,17 @@ public static class SqlCommandExtensions
         ILogger logger
     )
     {
+        using var transaction = tableSchema.UseSnapshotIsolationSeed
+            ? sourceConn.BeginTransaction(IsolationLevel.Snapshot)
+            : null;
+
         using var sourceCmd = new SqlCommand
         {
             Connection = sourceConn,
             CommandType = CommandType.Text,
             CommandText = tableSchema.SourceSelectAllStatement,
-            CommandTimeout = 500000
+            CommandTimeout = 500000,
+            Transaction = transaction
         };
 
         using var reader = sourceCmd.ExecuteReader();
@@ -319,5 +324,6 @@ public static class SqlCommandExtensions
         bcp.SqlRowsCopied += (s, e) => logger.LogInformation("{Scope} {TargetTableName} {RowsCopied} rows copied", scope, tableSchema.TargetTableName, e.RowsCopied);
         bcp.WriteToServer(reader);
         logger.LogInformation("{Scope} Bulk copy complete for {TargetTableName}.", scope, tableSchema.TargetTableName);
+        transaction?.Commit();
     }
 }
