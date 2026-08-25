@@ -72,7 +72,8 @@ public partial class GetSyncJobConfig
                         targetConn,
                         table,
                         syncJob.BatchSize,
-                        globalChangeTracking: true
+                        globalChangeTracking: true,
+                        syncJob.UseSnapshotIsolationSeed
                         )
                 )
                 .Select(table => new

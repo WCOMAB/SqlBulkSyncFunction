@@ -70,6 +70,9 @@ public record TableSchema
     /// <summary>Bulk copy batch size.</summary>
     public int BatchSize { get; }
 
+    /// <summary>Whether seed bulk copy uses Snapshot isolation on the source.</summary>
+    public bool UseSnapshotIsolationSeed { get; }
+
     /// <summary>Whether identity insert is disabled during merge.</summary>
     public bool DisableTargetIdentityInsert { get; }
 
@@ -91,6 +94,7 @@ public record TableSchema
         TableVersion sourceVersion,
         TableVersion targetVersion,
         int? batchSize,
+        bool useSnapshotIsolationSeed,
         string[] referencingTables,
         bool useDeleteInsteadOfTruncate
         )
@@ -129,6 +133,7 @@ public record TableSchema
         ClearTargetTableStatement = this.GetClearTargetTableStatement(UseDeleteInsteadOfTruncate, ReferencingTables);
         SyncTableExistStatement = this.GetSyncTableExistStatement();
         BatchSize = batchSize ?? 1000;
+        UseSnapshotIsolationSeed = useSnapshotIsolationSeed;
     }
 
 
@@ -140,7 +145,8 @@ public record TableSchema
         SqlConnection targetConn,
         SyncJobTable syncTable,
         int? batchSize,
-        bool globalChangeTracking
+        bool globalChangeTracking,
+        bool useSnapshotIsolationSeed = false
         )
     {
         var columns = sourceConn.GetColumns(syncTable.Source);
@@ -153,6 +159,7 @@ public record TableSchema
             sourceConn.GetSourceVersion(syncTable.Source, globalChangeTracking, columns),
             targetVersion,
             batchSize,
+            useSnapshotIsolationSeed,
             referencingTables,
             useDeleteInsteadOfTruncate
             );

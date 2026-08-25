@@ -44,6 +44,7 @@ public partial class GetSyncJobConfig
                     Id: id,
                     Area: area,
                     BatchSize: jobConfig.BatchSize,
+                    UseSnapshotIsolationSeed: jobConfig.UseSnapshotIsolationSeed,
                     Manual: jobConfig.Manual,
                     Schedules: jobConfig.Schedules,
                     Tables: tables

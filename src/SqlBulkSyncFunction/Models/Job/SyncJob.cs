@@ -15,9 +15,10 @@ public record SyncJob(
     ICollection<SyncJobTable> Tables,
     int? BatchSize,
     bool Seed,
+    bool UseSnapshotIsolationSeed = false,
     string SourceDbAccessToken = null,
     string TargetDbAccessToken = null
-)
+    )
 {
     public string CorrelationId { get; init; } = FormattableString.Invariant($"{Schedule}/{Area}/{Id}/{Timestamp.Year:0000}/{Timestamp.Month:00}/{Timestamp.Day:00}/{Timestamp.Hour:00}/{Timestamp.Minute:00}{Guid.CreateVersion7():n}");
 }
