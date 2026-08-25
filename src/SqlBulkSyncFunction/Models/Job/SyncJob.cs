@@ -16,6 +16,7 @@ public record SyncJob(
     int? BatchSize,
     bool Seed,
     bool UseSnapshotIsolationSeed = false,
+    bool UseApplicationIntentReadOnlySeed = false,
     string SourceDbAccessToken = null,
     string TargetDbAccessToken = null
     )

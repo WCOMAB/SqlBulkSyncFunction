@@ -28,6 +28,7 @@ public record SyncJobConfigTableDto(
 /// <param name="Area">Job area.</param>
 /// <param name="BatchSize">Optional batch size for sync operations.</param>
 /// <param name="UseSnapshotIsolationSeed">Whether seed bulk copy uses Snapshot isolation on the source.</param>
+/// <param name="UseApplicationIntentReadOnlySeed">Whether seed bulk copy reads source with ApplicationIntent=ReadOnly.</param>
 /// <param name="Manual">Whether the job is manual.</param>
 /// <param name="Schedules">Schedule configuration.</param>
 /// <param name="Tables">Table mappings (key -> table config).</param>
@@ -36,6 +37,7 @@ public record SyncJobConfigResponse(
     [property: JsonPropertyName("area")] string Area,
     [property: JsonPropertyName("batchSize")] int? BatchSize,
     [property: JsonPropertyName("useSnapshotIsolationSeed")] bool UseSnapshotIsolationSeed,
+    [property: JsonPropertyName("useApplicationIntentReadOnlySeed")] bool UseApplicationIntentReadOnlySeed,
     [property: JsonPropertyName("manual")] bool? Manual,
     [property: JsonPropertyName("schedules")] Dictionary<string, bool> Schedules,
     [property: JsonPropertyName("tables")] Dictionary<string, SyncJobConfigTableDto> Tables

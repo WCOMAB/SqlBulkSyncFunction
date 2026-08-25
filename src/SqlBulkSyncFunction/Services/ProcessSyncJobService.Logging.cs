@@ -8,6 +8,9 @@ public partial class ProcessSyncJobService
     [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} Connecting to source database {DataSource}.{Database}")]
     private partial void LogConnectingToSourceDatabase(string schedule, string id, string area, string dataSource, string database);
 
+    [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} Connecting to read-only seed source {DataSource}.{Database} (ApplicationIntent=ReadOnly)")]
+    private partial void LogConnectingToReadOnlySeedSource(string schedule, string id, string area, string dataSource, string database);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} Connected {ClientConnectionId}")]
     private partial void LogConnected(string schedule, string id, string area, Guid clientConnectionId);
 

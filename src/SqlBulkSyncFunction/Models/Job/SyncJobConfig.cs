@@ -14,6 +14,7 @@ public record SyncJobConfig
     public Dictionary<string, bool> ReseedTargetIdentityAfterClearTables { get; init; } = [];
     public int? BatchSize { get; init; }
     public bool UseSnapshotIsolationSeed { get; init; }
+    public bool UseApplicationIntentReadOnlySeed { get; init; }
     public string Area { get; init; }
     public bool? Manual { get; init; }
     public Dictionary<string, bool> Schedules { get; init; } = [];

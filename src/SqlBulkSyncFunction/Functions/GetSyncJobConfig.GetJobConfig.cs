@@ -45,6 +45,7 @@ public partial class GetSyncJobConfig
                     Area: area,
                     BatchSize: jobConfig.BatchSize,
                     UseSnapshotIsolationSeed: jobConfig.UseSnapshotIsolationSeed,
+                    UseApplicationIntentReadOnlySeed: jobConfig.UseApplicationIntentReadOnlySeed,
                     Manual: jobConfig.Manual,
                     Schedules: jobConfig.Schedules,
                     Tables: tables

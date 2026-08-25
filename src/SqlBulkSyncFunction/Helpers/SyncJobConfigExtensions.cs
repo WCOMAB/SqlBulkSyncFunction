@@ -30,6 +30,7 @@ public static class SyncJobConfigExtensions
                 Tables: job.ToSyncJobTables(),
                 BatchSize: job.BatchSize,
                 UseSnapshotIsolationSeed: job.UseSnapshotIsolationSeed,
+                UseApplicationIntentReadOnlySeed: job.UseApplicationIntentReadOnlySeed,
                 Timestamp: timestamp,
                 Expires: expires,
                 Seed: seed
