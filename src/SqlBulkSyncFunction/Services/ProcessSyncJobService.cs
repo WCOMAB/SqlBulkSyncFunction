@@ -38,7 +38,8 @@ public partial class ProcessSyncJobService(
         {
             await using SqlConnection
                 sourceConn = new(syncJob.SourceDbConnection) { AccessToken = syncJob.SourceDbAccessToken },
-                targetConn = new(syncJob.TargetDbConnection) { AccessToken = syncJob.TargetDbAccessToken };
+                targetConn = new(syncJob.TargetDbConnection) { AccessToken = syncJob.TargetDbAccessToken },
+                seedSourceConn = CreateReadOnlySeedConnectionOrNull(syncJob);
 
             using IDisposable
                 from = logger.BeginScope("{DataSource}.{Database}", sourceConn.DataSource, sourceConn.Database),
@@ -51,6 +52,15 @@ public partial class ProcessSyncJobService(
             LogConnectingToTargetDatabase(schedule, id, area, targetConn.DataSource, targetConn.Database);
             await targetConn.OpenAsync();
             LogConnected(schedule, id, area, targetConn.ClientConnectionId);
+
+            if (seedSourceConn is not null)
+            {
+                LogConnectingToReadOnlySeedSource(schedule, id, area, seedSourceConn.DataSource, seedSourceConn.Database);
+                await seedSourceConn.OpenAsync(cancellationToken);
+                LogConnected(schedule, id, area, seedSourceConn.ClientConnectionId);
+            }
+
+            var bulkSourceConn = seedSourceConn ?? sourceConn;
 
             LogEnsuringSyncSchemaAndTableExists(schedule, id, area);
             targetConn.EnsureSyncSchemaAndTableExists(scope, logger);
@@ -93,7 +103,7 @@ public partial class ProcessSyncJobService(
 
                             if (syncJob.Seed)
                             {
-                                SeedTable(targetConn, tableSchema, sourceConn, scope);
+                                SeedTable(targetConn, tableSchema, bulkSourceConn, scope);
                             }
                             else if (tableSchema.SourceVersion.CurrentVersion.Equals(tableSchema.TargetVersion.CurrentVersion))
                             {
@@ -124,6 +134,21 @@ public partial class ProcessSyncJobService(
                 throw new AggregateException($"{scope} sync failed", exceptions);
             }
         }
+    }
+
+    private static SqlConnection CreateReadOnlySeedConnectionOrNull(SyncJob syncJob)
+    {
+        if (!syncJob.Seed || !syncJob.UseApplicationIntentReadOnlySeed)
+        {
+            return null;
+        }
+
+        var connectionString = new SqlConnectionStringBuilder(syncJob.SourceDbConnection)
+        {
+            ApplicationIntent = ApplicationIntent.ReadOnly
+        }.ConnectionString;
+
+        return new SqlConnection(connectionString) { AccessToken = syncJob.SourceDbAccessToken };
     }
 
     private void SeedTable(SqlConnection targetConn, TableSchema tableSchema, SqlConnection sourceConn, object scope)
