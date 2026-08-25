@@ -296,6 +296,20 @@ public static class SqlCommandExtensions
             Transaction = transaction
         };
 
+        // Reader must be disposed before Commit; an open DataReader blocks the connection.
+        WriteBulkCopyToTarget(sourceCmd, targetConn, tableSchema, scope, logger);
+
+        transaction?.Commit();
+    }
+
+    private static void WriteBulkCopyToTarget(
+        SqlCommand sourceCmd,
+        SqlConnection targetConn,
+        TableSchema tableSchema,
+        object scope,
+        ILogger logger
+    )
+    {
         using var reader = sourceCmd.ExecuteReader();
 
         using var bcp = new SqlBulkCopy(targetConn, SqlBulkCopyOptions.KeepIdentity, null)
@@ -324,6 +338,5 @@ public static class SqlCommandExtensions
         bcp.SqlRowsCopied += (s, e) => logger.LogInformation("{Scope} {TargetTableName} {RowsCopied} rows copied", scope, tableSchema.TargetTableName, e.RowsCopied);
         bcp.WriteToServer(reader);
         logger.LogInformation("{Scope} Bulk copy complete for {TargetTableName}.", scope, tableSchema.TargetTableName);
-        transaction?.Commit();
     }
 }
