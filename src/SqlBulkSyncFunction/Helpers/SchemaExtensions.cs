@@ -227,12 +227,35 @@ public static class SchemaExtensions
                                                         ELSE CAST(c.max_length as varchar(max))
                                                     END
                                                     +')'
+                                        WHEN tp.name IN('varbinary', 'binary')
+                                            THEN    tp.name +
+                                                    '(' +
+                                                    CASE c.max_length
+                                                        WHEN -1 THEN 'max'
+                                                        ELSE CAST(c.max_length as varchar(max))
+                                                    END
+                                                    +')'
+                                        WHEN tp.name IN('char')
+                                            THEN    tp.name +
+                                                    '(' +
+                                                    CAST(c.max_length as varchar(max))
+                                                    +')'
+                                        WHEN tp.name IN('nchar')
+                                            THEN    tp.name +
+                                                    '(' +
+                                                    CAST(c.max_length / 2 as nvarchar(max))
+                                                    +')'
                                         WHEN tp.name = 'decimal'
                                             THEN    tp.name +
                                                     '(' +
                                                         CAST(c.precision as nvarchar(max))
                                                         + ', ' +
                                                         CAST(c.scale as nvarchar(max))
+                                                    +')'
+                                        WHEN tp.name IN('datetime2', 'datetimeoffset', 'time')
+                                            THEN    tp.name +
+                                                    '(' +
+                                                    CAST(c.scale as nvarchar(max))
                                                     +')'
                                         ELSE tp.name
                                     END AS Type,
