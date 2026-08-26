@@ -99,47 +99,60 @@ public static class SqlCommandExtensions
         TableSchema tableSchema,
         object scope,
         ILogger logger
-        ) => Array.ForEach(
-            [
-                new
-                {
-                    Name = tableSchema.SyncNewOrUpdatedTableName,
-                    SelectStatement = tableSchema.SourceNewOrUpdatedSelectStatement,
-                    Description = "new or updated"
-                },
-                new
-                {
-                    Name = tableSchema.SyncDeletedTableName,
-                    SelectStatement = tableSchema.SourceDeletedSelectStatement,
-                    Description = "deleted"
-                }
-            ],
-            table =>
-            {
-                using var sourceCmd = new SqlCommand
-                {
-                    Connection = sourceConn,
-                    CommandType = CommandType.Text,
-                    CommandText = table.SelectStatement,
-                    CommandTimeout = 500000
-                };
-
-                using var reader = sourceCmd.ExecuteReader();
-
-                using var bcp = new SqlBulkCopy(targetConn, SqlBulkCopyOptions.KeepIdentity, null)
-                {
-                    DestinationTableName = table.Name,
-                    BatchSize = tableSchema.BatchSize,
-                    NotifyAfter = tableSchema.BatchSize,
-                    BulkCopyTimeout = 300,
-                    EnableStreaming = true
-                };
-
-                bcp.SqlRowsCopied += (s, e) => logger.LogInformation("{Scope} {TableName} {RowsCopied} {Description} rows copied", scope, table.Name, e.RowsCopied, table.Description);
-                bcp.WriteToServer(reader);
-                logger.LogInformation("{Scope} Bulk copy complete for {Description}.", scope, table.Description);
-            }
+        )
+    {
+        BulkCopyChangesSegment(
+            sourceConn,
+            targetConn,
+            tableSchema,
+            tableSchema.SyncNewOrUpdatedTableName,
+            tableSchema.SourceNewOrUpdatedSelectStatement,
+            tableSchema.Columns,
+            scope,
+            logger
             );
+
+        BulkCopyChangesSegment(
+            sourceConn,
+            targetConn,
+            tableSchema,
+            tableSchema.SyncDeletedTableName,
+            tableSchema.SourceDeletedSelectStatement,
+            [.. tableSchema.Columns.Where(column => column.IsPrimary)],
+            scope,
+            logger
+            );
+    }
+
+    private static void BulkCopyChangesSegment(
+        SqlConnection sourceConn,
+        SqlConnection targetConn,
+        TableSchema tableSchema,
+        string destinationTableName,
+        string selectStatement,
+        Column[] columnMappings,
+        object scope,
+        ILogger logger
+        )
+    {
+        using var sourceCmd = new SqlCommand
+        {
+            Connection = sourceConn,
+            CommandType = CommandType.Text,
+            CommandText = selectStatement,
+            CommandTimeout = 500000
+        };
+
+        WriteBulkCopy(
+            sourceCmd,
+            targetConn,
+            tableSchema,
+            destinationTableName,
+            columnMappings,
+            scope,
+            logger
+            );
+    }
 
     public static bool SyncTablesExist(
         this SqlConnection targetConn,
@@ -302,6 +315,7 @@ public static class SqlCommandExtensions
             targetConn,
             tableSchema,
             tableSchema.TargetTableName,
+            tableSchema.Columns,
             scope,
             logger
             );
@@ -335,6 +349,7 @@ public static class SqlCommandExtensions
             targetConn,
             tableSchema,
             tableSchema.SyncNewOrUpdatedTableName,
+            tableSchema.Columns,
             scope,
             logger
             );
@@ -424,6 +439,7 @@ public static class SqlCommandExtensions
         SqlConnection targetConn,
         TableSchema tableSchema,
         string destinationTableName,
+        Column[] columnMappings,
         object scope,
         ILogger logger
     )
@@ -439,7 +455,7 @@ public static class SqlCommandExtensions
             EnableStreaming = true
         };
 
-        foreach (var tableSchemaColumn in tableSchema.Columns)
+        foreach (var tableSchemaColumn in columnMappings)
         {
             _ = bcp.ColumnMappings.Add(
                 tableSchemaColumn.Name,
