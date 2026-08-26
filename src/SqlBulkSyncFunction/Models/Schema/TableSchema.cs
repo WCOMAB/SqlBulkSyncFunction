@@ -37,6 +37,9 @@ public record TableSchema
     /// <summary>SQL merge statement for incremental sync.</summary>
     public string MergeNewOrUpdateStatement { get; }
 
+    /// <summary>SQL batch for interval full-sync reconcile (delete / insert / update changed).</summary>
+    public string FullSyncReconcileStatement { get; }
+
     /// <summary>SQL delete statement for incremental sync.</summary>
     public string DeleteStatement { get; }
 
@@ -127,6 +130,7 @@ public record TableSchema
         SourceSelectAllStatement = this.GetSourceSelectAllStatement();
         SourceDeletedSelectStatement = this.GetDeletedAtSourceSelectStatement();
         MergeNewOrUpdateStatement = this.GetNewOrUpdatedMergeStatement(DisableTargetIdentityInsert, DisableConstraintCheck);
+        FullSyncReconcileStatement = this.GetFullSyncReconcileStatement(DisableTargetIdentityInsert, DisableConstraintCheck);
         DeleteStatement = this.GetDeleteStatement();
         DropNewOrUpdatedTableStatement = SyncNewOrUpdatedTableName.GetDropStatement();
         DropDeletedTableStatement = SyncDeletedTableName.GetDropStatement();
@@ -146,17 +150,21 @@ public record TableSchema
         SyncJobTable syncTable,
         int? batchSize,
         bool globalChangeTracking,
-        bool useSnapshotIsolationSeed = false
+        bool useSnapshotIsolationSeed = false,
+        bool useUnixEpochVersion = false
         )
     {
         var columns = sourceConn.GetColumns(syncTable.Source);
         var targetVersion = targetConn.GetTargetVersion(syncTable.Target);
         var referencingTables = targetConn.GetReferencingTables(syncTable.Target);
         var useDeleteInsteadOfTruncate = syncTable.DeleteInsteadOfTruncate || referencingTables.Length > 0;
+        var sourceVersion = useUnixEpochVersion
+            ? sourceConn.GetUnixEpochSourceVersion(syncTable.Source)
+            : sourceConn.GetSourceVersion(syncTable.Source, globalChangeTracking, columns);
         return new TableSchema(
             syncTable,
             columns,
-            sourceConn.GetSourceVersion(syncTable.Source, globalChangeTracking, columns),
+            sourceVersion,
             targetVersion,
             batchSize,
             useSnapshotIsolationSeed,

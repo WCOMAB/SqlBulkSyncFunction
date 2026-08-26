@@ -15,6 +15,8 @@ public record SyncJobConfig
     public int? BatchSize { get; init; }
     public bool UseSnapshotIsolationSeed { get; init; }
     public bool UseApplicationIntentReadOnlySeed { get; init; }
+    /// <summary>When non-null, job uses interval full sync instead of change tracking.</summary>
+    public SyncJobFullSyncConfig FullSync { get; init; }
     public string Area { get; init; }
     public bool? Manual { get; init; }
     public Dictionary<string, bool> Schedules { get; init; } = [];

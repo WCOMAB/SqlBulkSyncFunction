@@ -34,12 +34,21 @@ public partial class ProcessSyncJobService(
     {
         var (schedule, id, area) = (syncJob.Schedule, syncJob.Id, syncJob.Area);
         var scope = new { Schedule = schedule, Id = id, Area = area };
+        var fullSync = syncJob.FullSync;
+
+        if (fullSync is not null && fullSync.IntervalMilliseconds <= 0)
+        {
+            throw new InvalidOperationException(
+                $"{scope} FullSync is configured but IntervalMilliseconds must be greater than 0 (got {fullSync.IntervalMilliseconds})."
+                );
+        }
+
         using (logger.BeginScope("Schedule={Schedule}, Id={Id}, Area={Area}", schedule, id, area))
         {
             await using SqlConnection
                 sourceConn = new(syncJob.SourceDbConnection) { AccessToken = syncJob.SourceDbAccessToken },
                 targetConn = new(syncJob.TargetDbConnection) { AccessToken = syncJob.TargetDbAccessToken },
-                seedSourceConn = CreateReadOnlySeedConnectionOrNull(syncJob);
+                bulkSourceConnOverride = CreateReadOnlyBulkSourceConnectionOrNull(syncJob);
 
             using IDisposable
                 from = logger.BeginScope("{DataSource}.{Database}", sourceConn.DataSource, sourceConn.Database),
@@ -53,14 +62,16 @@ public partial class ProcessSyncJobService(
             await targetConn.OpenAsync();
             LogConnected(schedule, id, area, targetConn.ClientConnectionId);
 
-            if (seedSourceConn is not null)
+            if (bulkSourceConnOverride is not null)
             {
-                LogConnectingToReadOnlySeedSource(schedule, id, area, seedSourceConn.DataSource, seedSourceConn.Database);
-                await seedSourceConn.OpenAsync(cancellationToken);
-                LogConnected(schedule, id, area, seedSourceConn.ClientConnectionId);
+                LogConnectingToReadOnlySeedSource(schedule, id, area, bulkSourceConnOverride.DataSource, bulkSourceConnOverride.Database);
+                await bulkSourceConnOverride.OpenAsync(cancellationToken);
+                LogConnected(schedule, id, area, bulkSourceConnOverride.ClientConnectionId);
             }
 
-            var bulkSourceConn = seedSourceConn ?? sourceConn;
+            var bulkSourceConn = bulkSourceConnOverride ?? sourceConn;
+            var useSnapshotIsolation = fullSync?.UseSnapshotIsolation ?? syncJob.UseSnapshotIsolationSeed;
+            var useUnixEpochVersion = fullSync is not null;
 
             LogEnsuringSyncSchemaAndTableExists(schedule, id, area);
             targetConn.EnsureSyncSchemaAndTableExists(scope, logger);
@@ -78,7 +89,8 @@ public partial class ProcessSyncJobService(
                         table,
                         syncJob.BatchSize,
                         globalChangeTracking,
-                        syncJob.UseSnapshotIsolationSeed
+                        useSnapshotIsolation,
+                        useUnixEpochVersion
                         )
                 ).ToArray();
             schemaStopWatch.Stop();
@@ -101,22 +113,36 @@ public partial class ProcessSyncJobService(
                                 return;
                             }
 
-                            if (syncJob.Seed)
+                            if (fullSync is not null)
                             {
-                                SeedTable(targetConn, tableSchema, bulkSourceConn, scope);
-                            }
-                            else if (tableSchema.SourceVersion.CurrentVersion.Equals(tableSchema.TargetVersion.CurrentVersion))
-                            {
-                                LogAlreadyUpToDate(schedule, id, area);
+                                ProcessFullSyncTable(
+                                    syncJob,
+                                    fullSync,
+                                    tableSchema,
+                                    targetConn,
+                                    bulkSourceConn,
+                                    scope,
+                                    schedule,
+                                    id,
+                                    area,
+                                    syncStopWatch
+                                    );
                             }
                             else
                             {
-                                SyncTable(targetConn, tableSchema, sourceConn, scope);
+                                ProcessChangeTrackingTable(
+                                    syncJob,
+                                    tableSchema,
+                                    targetConn,
+                                    sourceConn,
+                                    bulkSourceConn,
+                                    scope,
+                                    schedule,
+                                    id,
+                                    area,
+                                    syncStopWatch
+                                    );
                             }
-
-                            syncStopWatch.Stop();
-                            LogEndTableSchemaScopeDuration(schedule, id, area, tableSchema.Scope, syncStopWatch.Elapsed);
-                            targetConn.PersistsSourceTargetVersionState(tableSchema);
                         }
                     }
                     catch (Exception ex)
@@ -136,9 +162,90 @@ public partial class ProcessSyncJobService(
         }
     }
 
-    private static SqlConnection CreateReadOnlySeedConnectionOrNull(SyncJob syncJob)
+    private void ProcessFullSyncTable(
+        SyncJob syncJob,
+        SyncJobFullSyncConfig fullSync,
+        TableSchema tableSchema,
+        SqlConnection targetConn,
+        SqlConnection bulkSourceConn,
+        object scope,
+        string schedule,
+        string id,
+        string area,
+        Stopwatch syncStopWatch
+        )
     {
-        if (!syncJob.Seed || !syncJob.UseApplicationIntentReadOnlySeed)
+        var due = syncJob.Seed
+            || tableSchema.TargetVersion.CurrentVersion < 0
+            || (tableSchema.SourceVersion.CurrentVersion - tableSchema.TargetVersion.CurrentVersion) >= fullSync.IntervalMilliseconds;
+
+        if (!due)
+        {
+            LogFullSyncIntervalNotDue(
+                schedule,
+                id,
+                area,
+                fullSync.IntervalMilliseconds,
+                tableSchema.TargetVersion.CurrentVersion,
+                tableSchema.SourceVersion.CurrentVersion
+                );
+            syncStopWatch.Stop();
+            LogEndTableSchemaScopeDuration(schedule, id, area, tableSchema.Scope, syncStopWatch.Elapsed);
+            return;
+        }
+
+        if (syncJob.Seed)
+        {
+            SeedTable(targetConn, tableSchema, bulkSourceConn, scope);
+        }
+        else
+        {
+            FullSyncReconcileTable(targetConn, tableSchema, bulkSourceConn, scope);
+        }
+
+        syncStopWatch.Stop();
+        LogEndTableSchemaScopeDuration(schedule, id, area, tableSchema.Scope, syncStopWatch.Elapsed);
+        targetConn.PersistsSourceTargetVersionState(tableSchema);
+    }
+
+    private void ProcessChangeTrackingTable(
+        SyncJob syncJob,
+        TableSchema tableSchema,
+        SqlConnection targetConn,
+        SqlConnection sourceConn,
+        SqlConnection bulkSourceConn,
+        object scope,
+        string schedule,
+        string id,
+        string area,
+        Stopwatch syncStopWatch
+        )
+    {
+        if (syncJob.Seed)
+        {
+            SeedTable(targetConn, tableSchema, bulkSourceConn, scope);
+        }
+        else if (tableSchema.SourceVersion.CurrentVersion.Equals(tableSchema.TargetVersion.CurrentVersion))
+        {
+            LogAlreadyUpToDate(schedule, id, area);
+        }
+        else
+        {
+            SyncTable(targetConn, tableSchema, sourceConn, scope);
+        }
+
+        syncStopWatch.Stop();
+        LogEndTableSchemaScopeDuration(schedule, id, area, tableSchema.Scope, syncStopWatch.Elapsed);
+        targetConn.PersistsSourceTargetVersionState(tableSchema);
+    }
+
+    private static SqlConnection CreateReadOnlyBulkSourceConnectionOrNull(SyncJob syncJob)
+    {
+        var useReadOnly = syncJob.FullSync is not null
+            ? syncJob.FullSync.UseApplicationIntentReadOnly
+            : syncJob.Seed && syncJob.UseApplicationIntentReadOnlySeed;
+
+        if (!useReadOnly)
         {
             return null;
         }
@@ -155,6 +262,30 @@ public partial class ProcessSyncJobService(
     {
         targetConn.ClearTargetTable(tableSchema, scope, logger);
         sourceConn.BulkCopyDataDirect(targetConn, tableSchema, scope, logger);
+    }
+
+    private void FullSyncReconcileTable(
+        SqlConnection targetConn,
+        TableSchema tableSchema,
+        SqlConnection sourceConn,
+        object scope
+        )
+    {
+        if (targetConn.SyncTablesExist(tableSchema))
+        {
+            throw new Exception($"{scope} Aborting! Sync tables already exists ({tableSchema.SyncNewOrUpdatedTableName}, {tableSchema.SyncDeletedTableName})");
+        }
+
+        try
+        {
+            targetConn.CreateNewOrUpdatedSyncTable(tableSchema, scope, logger);
+            sourceConn.BulkCopyAllToSyncNewOrUpdatedTable(targetConn, tableSchema, scope, logger);
+            targetConn.ReconcileFullSyncData(tableSchema, scope, logger);
+        }
+        finally
+        {
+            targetConn.DropNewOrUpdatedSyncTable(tableSchema, scope, logger);
+        }
     }
 
     private void SyncTable(SqlConnection targetConn, TableSchema tableSchema, SqlConnection sourceConn, object scope)

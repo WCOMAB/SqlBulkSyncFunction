@@ -177,6 +177,22 @@ public static class SchemaExtensions
         return result;
     }
 
+    /// <summary>
+    /// Source version from Unix epoch milliseconds on the source database clock (no change tracking).
+    /// </summary>
+    public static TableVersion GetUnixEpochSourceVersion(
+        this SqlConnection conn,
+        string tableName
+        )
+    {
+        var result = conn.Query<TableVersion>(
+            commandTimeout: 5000,
+            sql: SqlStatementExtensions.GetUnixEpochMillisecondsVersionStatement(tableName)
+            )
+            .FirstOrDefault();
+        return result;
+    }
+
     public static Column[] GetColumns(this IDbConnection sourceConn, string tableName)
         => [.. sourceConn
             .Query<Column>(

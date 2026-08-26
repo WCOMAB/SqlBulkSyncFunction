@@ -46,6 +46,13 @@ public partial class GetSyncJobConfig
                     BatchSize: jobConfig.BatchSize,
                     UseSnapshotIsolationSeed: jobConfig.UseSnapshotIsolationSeed,
                     UseApplicationIntentReadOnlySeed: jobConfig.UseApplicationIntentReadOnlySeed,
+                    FullSync: jobConfig.FullSync is { } fullSync
+                        ? new SyncJobFullSyncConfigDto(
+                            fullSync.IntervalMilliseconds,
+                            fullSync.UseSnapshotIsolation,
+                            fullSync.UseApplicationIntentReadOnly
+                        )
+                        : null,
                     Manual: jobConfig.Manual,
                     Schedules: jobConfig.Schedules,
                     Tables: tables

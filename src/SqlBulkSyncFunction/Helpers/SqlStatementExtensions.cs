@@ -51,6 +51,21 @@ public static class SqlStatementExtensions
     }
 
     /// <summary>
+    /// Builds a version row using Unix epoch milliseconds from the source database clock (no change tracking).
+    /// </summary>
+    public static string GetUnixEpochMillisecondsVersionStatement(string tableName)
+        => $"""
+            SELECT  '{tableName}' AS TableName,
+                    DATEDIFF_BIG(
+                        MILLISECOND,
+                        '1970-01-01T00:00:00+00:00',
+                        SWITCHOFFSET(SYSDATETIMEOFFSET(), '+00:00')
+                    ) AS CurrentVersion,
+                    CAST(0 AS bigint) AS MinValidVersion,
+                    SYSDATETIMEOFFSET() AS Queried
+            """;
+
+    /// <summary>
     /// Builds a query that aggregates <c>CHANGETABLE</c> rows by <c>SYS_CHANGE_OPERATION</c>,
     /// producing <c>Updated</c>, <c>Inserted</c>, and <c>Deleted</c> counts (one row per table).
     /// Pass <c>@FromVersion</c> as <c>NULL</c> when no row exists in <c>sync.TableVersion</c> (never synced).
@@ -297,6 +312,128 @@ public static class SqlStatementExtensions
             );
         return statement;
     }
+
+    /// <summary>
+    /// Full-sync reconcile batch: delete orphans, move new rows from staging into target, update changed matches.
+    /// Staging is the full source snapshot in <see cref="TableSchema.SyncNewOrUpdatedTableName"/>.
+    /// </summary>
+    public static string GetFullSyncReconcileStatement(this TableSchema tableSchema, bool disableTargetIdentityInsert, bool disableConstraintCheck)
+    {
+        var identityInsert = !disableTargetIdentityInsert && tableSchema.Columns.Any(column => column.IsIdentity);
+        var primaryColumns = tableSchema.Columns.Where(column => column.IsPrimary).ToArray();
+        var updatableColumns = tableSchema.Columns
+            .Where(column => !column.IsPrimary && !column.IsIdentity)
+            .ToArray();
+
+        var pkJoin = string.Join(
+            " AND\r\n        ",
+            primaryColumns.Select(
+                column => string.Concat(
+                    "target.",
+                    column.QuoteName,
+                    " = source.",
+                    column.QuoteName
+                )
+            )
+        );
+
+        var stagingPkIsNull = string.Join(
+            " AND\r\n        ",
+            primaryColumns.Select(column => string.Concat("source.", column.QuoteName, " IS NULL"))
+        );
+
+        var targetPkIsNull = string.Join(
+            " AND\r\n        ",
+            primaryColumns.Select(column => string.Concat("target.", column.QuoteName, " IS NULL"))
+        );
+
+        var columnList = string.Join(
+            ",\r\n        ",
+            tableSchema.Columns.Select(column => column.QuoteName)
+        );
+
+        var deletedColumnList = string.Join(
+            ",\r\n        ",
+            tableSchema.Columns.Select(column => string.Concat("DELETED.", column.QuoteName))
+        );
+
+        var updateSet = updatableColumns.Length == 0
+            ? null
+            : string.Join(
+                ",\r\n            ",
+                updatableColumns.Select(
+                    column => string.Concat(
+                        "target.",
+                        column.QuoteName,
+                        " = source.",
+                        column.QuoteName
+                    )
+                )
+            );
+
+        var changeFilter = updatableColumns.Length == 0
+            ? null
+            : string.Join(
+                "\r\n            OR ",
+                updatableColumns.Select(column => NullSafeInequality("target", "source", column.QuoteName))
+            );
+
+        var updateStatement = updateSet is null
+            ? """
+            DECLARE @UpdatedCount int = 0;
+            """
+            : $"""
+            UPDATE target
+                SET {updateSet}
+                FROM {tableSchema.TargetTableName} AS target
+                    INNER JOIN {tableSchema.SyncNewOrUpdatedTableName} AS source ON
+                        {pkJoin}
+                WHERE {changeFilter};
+
+            DECLARE @UpdatedCount int = @@ROWCOUNT;
+            """;
+
+        return $"""
+            SET XACT_ABORT ON;
+            BEGIN TRANSACTION;
+
+            {(disableConstraintCheck ? $"ALTER TABLE {tableSchema.TargetTableName} NOCHECK CONSTRAINT ALL;" : string.Empty)}
+            {(identityInsert ? $"SET IDENTITY_INSERT {tableSchema.TargetTableName} ON;" : string.Empty)}
+
+            DELETE target
+                FROM {tableSchema.TargetTableName} AS target
+                    LEFT JOIN {tableSchema.SyncNewOrUpdatedTableName} AS source ON
+                        {pkJoin}
+                WHERE {stagingPkIsNull};
+
+            DECLARE @DeletedCount int = @@ROWCOUNT;
+
+            DELETE source
+            OUTPUT
+                {deletedColumnList}
+            INTO {tableSchema.TargetTableName} (
+                {columnList}
+            )
+                FROM {tableSchema.SyncNewOrUpdatedTableName} AS source
+                    LEFT JOIN {tableSchema.TargetTableName} AS target ON
+                        {pkJoin}
+                WHERE {targetPkIsNull};
+
+            DECLARE @InsertedCount int = @@ROWCOUNT;
+
+            {updateStatement}
+
+            {(identityInsert ? $"SET IDENTITY_INSERT {tableSchema.TargetTableName} OFF;" : string.Empty)}
+            {(disableConstraintCheck ? $"ALTER TABLE {tableSchema.TargetTableName} CHECK CONSTRAINT ALL;" : string.Empty)}
+
+            COMMIT TRANSACTION;
+
+            SELECT @DeletedCount AS Deleted, @InsertedCount AS Inserted, @UpdatedCount AS Updated;
+            """;
+    }
+
+    private static string NullSafeInequality(string leftAlias, string rightAlias, string quoteName)
+        => $"({leftAlias}.{quoteName} <> {rightAlias}.{quoteName} OR ({leftAlias}.{quoteName} IS NULL AND {rightAlias}.{quoteName} IS NOT NULL) OR ({leftAlias}.{quoteName} IS NOT NULL AND {rightAlias}.{quoteName} IS NULL))";
 
     public static string GetDeleteStatement(this TableSchema tableSchema)
     {

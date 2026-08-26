@@ -297,15 +297,133 @@ public static class SqlCommandExtensions
         };
 
         // Reader must be disposed before Commit; an open DataReader blocks the connection.
-        WriteBulkCopyToTarget(sourceCmd, targetConn, tableSchema, scope, logger);
+        WriteBulkCopy(
+            sourceCmd,
+            targetConn,
+            tableSchema,
+            tableSchema.TargetTableName,
+            scope,
+            logger
+            );
 
         transaction?.Commit();
     }
 
-    private static void WriteBulkCopyToTarget(
+    public static void BulkCopyAllToSyncNewOrUpdatedTable(
+        this SqlConnection sourceConn,
+        SqlConnection targetConn,
+        TableSchema tableSchema,
+        object scope,
+        ILogger logger
+    )
+    {
+        using var transaction = tableSchema.UseSnapshotIsolationSeed
+            ? sourceConn.BeginTransaction(IsolationLevel.Snapshot)
+            : null;
+
+        using var sourceCmd = new SqlCommand
+        {
+            Connection = sourceConn,
+            CommandType = CommandType.Text,
+            CommandText = tableSchema.SourceSelectAllStatement,
+            CommandTimeout = 500000,
+            Transaction = transaction
+        };
+
+        WriteBulkCopy(
+            sourceCmd,
+            targetConn,
+            tableSchema,
+            tableSchema.SyncNewOrUpdatedTableName,
+            scope,
+            logger
+            );
+
+        transaction?.Commit();
+    }
+
+    public static void CreateNewOrUpdatedSyncTable(
+        this SqlConnection targetConn,
+        TableSchema tableSchema,
+        object scope,
+        ILogger logger
+        )
+    {
+        _ = targetConn.Execute(
+            commandType: CommandType.Text,
+            commandTimeout: 500,
+            sql: tableSchema.CreateNewOrUpdatedSyncTableStatement
+            );
+        logger.LogInformation("{Scope} Sync table {Name} created.", scope, tableSchema.SyncNewOrUpdatedTableName);
+    }
+
+    public static void DropNewOrUpdatedSyncTable(
+        this SqlConnection targetConn,
+        TableSchema tableSchema,
+        object scope,
+        ILogger logger
+        )
+    {
+        try
+        {
+            _ = targetConn.Execute(
+                commandType: CommandType.Text,
+                commandTimeout: 500000,
+                sql: tableSchema.DropNewOrUpdatedTableStatement
+                );
+            logger.LogInformation("{Scope} Sync table {Name} dropped.", scope, tableSchema.SyncNewOrUpdatedTableName);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(
+                ex,
+                "{Scope} Failed to drop sync table {SyncNewOrUpdatedTableName}\r\n{Exception}",
+                scope,
+                tableSchema.SyncNewOrUpdatedTableName,
+                ex.Message
+                );
+        }
+    }
+
+    public static void ReconcileFullSyncData(
+        this SqlConnection targetConn,
+        TableSchema tableSchema,
+        object scope,
+        ILogger logger
+        )
+    {
+        try
+        {
+            var result = targetConn.QueryFirst<(long Deleted, long Inserted, long Updated)>(
+                commandTimeout: 500000,
+                sql: tableSchema.FullSyncReconcileStatement
+                );
+            logger.LogInformation(
+                "{Scope} Full sync reconcile complete. Deleted={Deleted}, Inserted={Inserted}, Updated={Updated}",
+                scope,
+                result.Deleted,
+                result.Inserted,
+                result.Updated
+                );
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(
+                ex,
+                "Full sync reconcile failed for {Scope} with statement {FullSyncReconcileStatement}\r\n{Exception}",
+                scope,
+                tableSchema.FullSyncReconcileStatement,
+                ex.Message
+                );
+            throw;
+        }
+    }
+
+    private static void WriteBulkCopy(
         SqlCommand sourceCmd,
         SqlConnection targetConn,
         TableSchema tableSchema,
+        string destinationTableName,
         object scope,
         ILogger logger
     )
@@ -314,7 +432,7 @@ public static class SqlCommandExtensions
 
         using var bcp = new SqlBulkCopy(targetConn, SqlBulkCopyOptions.KeepIdentity, null)
         {
-            DestinationTableName = tableSchema.TargetTableName,
+            DestinationTableName = destinationTableName,
             BatchSize = tableSchema.BatchSize,
             NotifyAfter = tableSchema.BatchSize,
             BulkCopyTimeout = 600,
@@ -334,9 +452,9 @@ public static class SqlCommandExtensions
             }
         }
 
-        logger.LogInformation("{Scope} Bulk copy starting for {TargetTableName}.", scope, tableSchema.TargetTableName);
-        bcp.SqlRowsCopied += (s, e) => logger.LogInformation("{Scope} {TargetTableName} {RowsCopied} rows copied", scope, tableSchema.TargetTableName, e.RowsCopied);
+        logger.LogInformation("{Scope} Bulk copy starting for {DestinationTableName}.", scope, destinationTableName);
+        bcp.SqlRowsCopied += (s, e) => logger.LogInformation("{Scope} {DestinationTableName} {RowsCopied} rows copied", scope, destinationTableName, e.RowsCopied);
         bcp.WriteToServer(reader);
-        logger.LogInformation("{Scope} Bulk copy complete for {TargetTableName}.", scope, tableSchema.TargetTableName);
+        logger.LogInformation("{Scope} Bulk copy complete for {DestinationTableName}.", scope, destinationTableName);
     }
 }
