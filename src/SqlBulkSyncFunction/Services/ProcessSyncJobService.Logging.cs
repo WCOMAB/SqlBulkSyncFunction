@@ -35,6 +35,9 @@ public partial class ProcessSyncJobService
     [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} Already up to date")]
     private partial void LogAlreadyUpToDate(string schedule, string id, string area);
 
+    [LoggerMessage(Level = LogLevel.Information, Message = "{Schedule} {Id} {Area} Full sync interval not due (intervalMs={IntervalMilliseconds}, lastVersion={LastVersion}, nowVersion={NowVersion})")]
+    private partial void LogFullSyncIntervalNotDue(string schedule, string id, string area, long intervalMilliseconds, long lastVersion, long nowVersion);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "{Schedule} {Id} {Area} Unknown / failed to fetch source version {Scope}.")]
     private partial void LogUnknownSourceVersion(string schedule, string id, string area, string scope);
 

@@ -31,6 +31,7 @@ public static class SyncJobConfigExtensions
                 BatchSize: job.BatchSize,
                 UseSnapshotIsolationSeed: job.UseSnapshotIsolationSeed,
                 UseApplicationIntentReadOnlySeed: job.UseApplicationIntentReadOnlySeed,
+                FullSync: job.FullSync,
                 Timestamp: timestamp,
                 Expires: expires,
                 Seed: seed

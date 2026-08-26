@@ -17,6 +17,7 @@ public record SyncJob(
     bool Seed,
     bool UseSnapshotIsolationSeed = false,
     bool UseApplicationIntentReadOnlySeed = false,
+    SyncJobFullSyncConfig FullSync = null,
     string SourceDbAccessToken = null,
     string TargetDbAccessToken = null
     )
