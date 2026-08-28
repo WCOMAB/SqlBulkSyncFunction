@@ -451,7 +451,7 @@ public static class SqlCommandExtensions
             DestinationTableName = destinationTableName,
             BatchSize = tableSchema.BatchSize,
             NotifyAfter = tableSchema.BatchSize,
-            BulkCopyTimeout = 600,
+            BulkCopyTimeout = 3600,
             EnableStreaming = true
         };
 
@@ -469,7 +469,7 @@ public static class SqlCommandExtensions
         }
 
         logger.LogInformation("{Scope} Bulk copy starting for {DestinationTableName}.", scope, destinationTableName);
-        bcp.SqlRowsCopied += (s, e) => logger.LogInformation("{Scope} {DestinationTableName} {RowsCopied} rows copied", scope, destinationTableName, e.RowsCopied);
+        bcp.SqlRowsCopied += (s, e) => logger.LogInformation("{Scope} {DestinationTableName} {RowsCopied} rows copied", scope, destinationTableName, bcp.RowsCopied64);
         bcp.WriteToServer(reader);
         logger.LogInformation("{Scope} Bulk copy complete for {DestinationTableName}.", scope, destinationTableName);
     }
