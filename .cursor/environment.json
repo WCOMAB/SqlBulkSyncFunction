@@ -1,0 +1,15 @@
+{
+  "name": "SqlBulkSyncFunction",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "func host",
+      "description": "Azure Functions host for SqlBulkSyncFunction on http://localhost:7072/api (config, monitor, queue, swagger endpoints).",
+      "command": "export DOTNET_ROOT=\"$HOME/.dotnet\"; export PATH=\"$HOME/.dotnet:$HOME/.dotnet/tools:$HOME/.npm-global/bin:$PATH\"; cd src/SqlBulkSyncFunction && func start --port 7072"
+    }
+  ],
+  "ports": [
+    { "name": "func host", "port": 7072 }
+  ]
+}
