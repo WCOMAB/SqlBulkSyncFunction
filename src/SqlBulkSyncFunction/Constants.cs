@@ -158,4 +158,20 @@ public static class Constants
         /// <summary>ZIP archives.</summary>
         public const string Zip = "application/zip";
     }
+
+    /// <summary>
+    /// Values reported to SQL Server for session identification.
+    /// </summary>
+    public static class Sql
+    {
+        /// <summary>
+        /// Connection string Application Name, surfaced by T-SQL app_name() and sys.dm_exec_sessions.program_name.
+        /// </summary>
+        public const string ApplicationName = nameof(SqlBulkSyncFunction);
+
+        /// <summary>
+        /// Connection string keyword for <see cref="ApplicationName"/>.
+        /// </summary>
+        public const string ApplicationNameKeyword = "Application Name";
+    }
 }

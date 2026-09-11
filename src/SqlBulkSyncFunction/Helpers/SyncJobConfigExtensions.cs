@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Data.SqlClient;
 using SqlBulkSyncFunction.Models;
 using SqlBulkSyncFunction.Models.Job;
 
@@ -23,9 +24,9 @@ public static class SyncJobConfigExtensions
                 id,
                 schedule,
                 job.Area,
-                SourceDbConnection: job.Source.ConnectionString,
+                SourceDbConnection: job.Source.ConnectionString.WithApplicationName(),
                 SourceDbAccessToken: TryGetToken(job.Source, tokenCache),
-                TargetDbConnection: job.Target.ConnectionString,
+                TargetDbConnection: job.Target.ConnectionString.WithApplicationName(),
                 TargetDbAccessToken: TryGetToken(job.Target, tokenCache),
                 Tables: job.ToSyncJobTables(),
                 BatchSize: job.BatchSize,
@@ -36,6 +37,27 @@ public static class SyncJobConfigExtensions
                 Expires: expires,
                 Seed: seed
             );
+
+    /// <summary>
+    /// Ensures the connection string identifies the app to SQL Server, unless it already sets Application Name.
+    /// </summary>
+    private static string WithApplicationName(this string connectionString)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return connectionString;
+        }
+
+        var builder = new SqlConnectionStringBuilder(connectionString);
+
+        if (builder.ShouldSerialize(Constants.Sql.ApplicationNameKeyword))
+        {
+            return connectionString;
+        }
+
+        builder.ApplicationName = Constants.Sql.ApplicationName;
+        return builder.ConnectionString;
+    }
 
     private static SyncJobTable[] ToSyncJobTables(this SyncJobConfig job)
     {

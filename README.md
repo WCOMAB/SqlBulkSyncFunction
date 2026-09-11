@@ -47,6 +47,8 @@ The function is configured through Azure App Settings / Environment variables, y
 >
 > Replace `[key]` with unique name of sync job / table config i.e. `MySync` / `MyTable` would result in `SyncJobsConfig__Jobs__MySync__Tables__MyTable`=`dbo.MyTable`
 >
+> **Application Name**: Source and target connections report `SqlBulkSyncFunction` to SQL Server (T-SQL `app_name()` / `sys.dm_exec_sessions.program_name`). Set `Application Name` (or `App`) in a connection string to override it for that database.
+>
 > **DisableTargetIdentityInsertTables**: Omit or set to `false` to copy identity values from source (default). Set to `true` per table when the target schema has no identity column but the source does.
 >
 > **DisableConstraintCheckTables**: Omit or set to `false` to keep constraints enabled during merge (default). Set to `true` per table when syncing tables with foreign key dependencies that may cause constraint violations due to merge order.
