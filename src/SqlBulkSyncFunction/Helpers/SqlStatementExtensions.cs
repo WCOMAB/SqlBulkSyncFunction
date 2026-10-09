@@ -576,6 +576,7 @@ public static class SqlStatementExtensions
             SELECT  {0}
                 FROM CHANGETABLE(CHANGES {1}, {2}) ct
                 WHERE ct.SYS_CHANGE_OPERATION = 'D'
+                {3}
             """,
             string.Join(
                 ",\r\n        ",
@@ -584,8 +585,24 @@ public static class SqlStatementExtensions
                 .Select(column => string.Concat("ct.", column.QuoteName))
                 ),
             tableSchema.SourceTableName,
-            tableSchema.TargetVersion.CurrentVersion
+            tableSchema.TargetVersion.CurrentVersion,
+            tableSchema.IdentityPrimaryKeyOrderBy("ct.")
             );
+    }
+
+    /// <summary>
+    /// Orders identity primary-key columns ascending so bulk copy order hints match the clustered key.
+    /// </summary>
+    private static string IdentityPrimaryKeyOrderBy(this TableSchema tableSchema, string qualifier)
+    {
+        var orderColumns = tableSchema.Columns
+            .Where(column => column.IsPrimary && column.IsIdentity)
+            .Select(column => string.Concat(qualifier, column.QuoteName, " ASC"))
+            .ToArray();
+
+        return orderColumns.Length == 0
+            ? string.Empty
+            : string.Concat("ORDER BY ", string.Join(",\r\n        ", orderColumns));
     }
 
     public static string GetSourceSelectAllStatement(this TableSchema tableSchema)
@@ -604,12 +621,13 @@ public static class SqlStatementExtensions
             tableSchema.Columns.Any(column => column.IsPrimary && column.IsIdentity)
                 ? string.Concat(
                     "ORDER BY ",
-                string.Join(
-                    ",\r\n        ",
-                    tableSchema.Columns
-                        .Where(column => column.IsPrimary && column.IsIdentity)
-                        .Select(column => string.Concat(column.QuoteName, " ASC"))
-                    )
+                    string.Join(
+                        ",\r\n        ",
+                        tableSchema.Columns
+                            .Where(column => column.IsPrimary && column.IsIdentity)
+                            .Select(column => string.Concat(column.QuoteName, " ASC"))
+                    ),
+                    "\r\nOPTION (MAXDOP 1)"
                 )
                 : string.Empty
         );
@@ -630,6 +648,7 @@ public static class SqlStatementExtensions
                 SELECT  {0}
                     FROM CHANGETABLE(CHANGES {1}, {2}) ct
                         INNER JOIN {1} t WITH(NOLOCK) ON {3}
+                    {4}
                 """,
                 string.Join(
                     ",\r\n        ",
@@ -647,7 +666,8 @@ public static class SqlStatementExtensions
                             column.QuoteName
                             )
                         )
-                    )
+                    ),
+                tableSchema.IdentityPrimaryKeyOrderBy("t.")
                 );
         return statement;
     }
