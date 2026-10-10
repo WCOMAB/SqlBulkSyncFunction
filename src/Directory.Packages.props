@@ -20,7 +20,7 @@
     <PackageVersion Include="Microsoft.Data.SqlClient" Version="7.1.1" />
     <PackageVersion Include="Microsoft.Data.SqlClient.Extensions.Azure" Version="7.1.1" />
     <PackageVersion Include="Azure.Data.Tables" Version="12.13.0" />
-    <PackageVersion Include="Devlead.SourcePack" Version="2026.9.11.79" />
+    <PackageVersion Include="Devlead.SourcePack" Version="2026.10.10.96" />
     <PackageVersion Include="Cronos" Version="0.13.0" />
   </ItemGroup>
 </Project>
