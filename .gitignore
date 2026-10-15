@@ -265,3 +265,6 @@ __pycache__/
 
 # Visual Studio Launch Settings
 launchSettings.json
+# Cake tools
+tools/
+
