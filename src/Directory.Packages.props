@@ -23,6 +23,6 @@
     <PackageVersion Include="Azure.Data.Tables" Version="12.13.0" />
     <PackageVersion Include="Devlead.SourcePack" Version="2026.11.11.161" />
     <PackageVersion Include="Cronos" Version="0.13.0" />
-    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.15" />
   </ItemGroup>
 </Project>
